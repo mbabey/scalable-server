@@ -1,3 +1,5 @@
+#include "../include/objects.h"
+
 #include <dc_env/env.h>
 #include <dc_error/error.h>
 #include <dc_application/application.h>
@@ -7,6 +9,7 @@
 #include <dc_c/dc_stdio.h>
 #include <mem_manager/manager.h>
 
+#include <string.h>
 #include <getopt.h>
 
 // TODO: Need documentation
@@ -16,6 +19,17 @@ struct application_settings
     struct dc_setting_string *library;
     // storing a struct is not possible, only use as app settings for now
 };
+
+/**
+ * do_setup
+ * <p>
+ * Zero the core_object. Setup other objects and attach them to the core_object.
+ * Open the log file and attach it to the core object.
+ * </p>
+ * @param co the core object
+ * @return 0 on success. On failure, -1 and set errno
+ */
+int do_setup(struct core_object *co);
 
 // TODO: Need documentation.
 static struct dc_application_settings *create_settings(const struct dc_env *env, struct dc_error *err);
@@ -47,12 +61,26 @@ int main(int argc, char *argv[])
     ret_val = dc_application_run(env, err, info, create_settings, destroy_settings, run, dc_default_create_lifecycle,
                                  dc_default_destroy_lifecycle, NULL, argc, argv);
     
+    
+    
     dc_application_info_destroy(env, &info);
     dc_error_reset(err);
     
     
     
     return ret_val;
+}
+
+int do_setup(struct core_object *co)
+{
+    memset(co, 0, sizeof(struct core_object));
+    
+    struct dc_env *env;
+    struct dc_error *err;
+    struct memory_manager *mm;
+    FILE *log_file;
+    
+    return 0;
 }
 
 static struct dc_application_settings *create_settings(const struct dc_env *env, struct dc_error *err)
