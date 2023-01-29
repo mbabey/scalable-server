@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(scalable_server
+project(one-to-one
         VERSION 0.0.1
         DESCRIPTION ""
         LANGUAGES C)
@@ -10,11 +10,11 @@ set(CMAKE_C_STANDARD 17)
 set(SOURCE_DIR src)
 set(INCLUDE_DIR include)
 set(SOURCE_LIST
-        ${SOURCE_DIR}/main.c
         ${SOURCE_DIR}/api_functions.c
         )
 set(HEADER_LIST
         ${INCLUDE_DIR}/objects.h
+        ../api_functions.h
         )
 
 set(SANITIZE TRUE)
@@ -109,7 +109,7 @@ set(DOXYGEN_QUIET YES)
 doxygen_add_docs(doxygen
         ${HEADER_LIST}
         WORKING_DIRECTORY ..
-        COMMENT "Generating Doxygen documentation for scalable_server")
+        COMMENT "Generating Doxygen documentation for one-to-one")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CLANG_TIDY_CHECKS "*")
@@ -134,5 +134,33 @@ set(CLANG_TIDY_CHECKS "${CLANG_TIDY_CHECKS},-clang-analyzer-security.insecureAPI
 set(CLANG_TIDY_CHECKS "${CLANG_TIDY_CHECKS},-android-cloexec-accept")
 set(CMAKE_C_CLANG_TIDY clang-tidy -checks=${CLANG_TIDY_CHECKS};--quiet)
 
-add_executable(scalable_server ${SOURCE_LIST})
-add_dependencies(scalable_server doxygen)
+#========= vvv COMPILE AS LIBRARY vvv =========#
+
+add_library(one-to-one SHARED ${SOURCE_LIST} ${HEADER_LIST})
+target_include_directories(one-to-one PRIVATE include/one-to-one)
+target_include_directories(one-to-one PRIVATE /usr/local/include)
+target_link_directories(one-to-one PRIVATE /usr/local/lib)
+
+if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    target_include_directories(one-to-one PRIVATE /usr/include)
+endif ()
+
+set_target_properties(one-to-one PROPERTIES
+        VERSION ${PROJECT_VERSION}
+        SOVERSION ${PROJECT_VERSION_MAJOR})
+
+get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
+
+if ("${LIB64}" STREQUAL "TRUE")
+    set(LIBSUFFIX 64)
+else()
+    set(LIBSUFFIX "")
+endif()
+
+set(INSTALL_LIB_DIR lib${LIBSUFFIX} CACHE PATH "Installation directory for libraries")
+mark_as_advanced(INSTALL_LIB_DIR)
+
+install(TARGETS one-to-one LIBRARY DESTINATION ${INSTALL_LIB_DIR})
+install(FILES ${HEADER_LIST} DESTINATION include/one-to-one)
+
+add_dependencies(one-to-one doxygen)
