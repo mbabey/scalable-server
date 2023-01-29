@@ -44,7 +44,7 @@ int setup_core_object(struct core_object *co, struct dc_env *env, struct dc_erro
  * </p>
  * @return The log file. NULL and set errno on failure.
  */
-FILE *open_log_file(struct core_object *co);
+FILE *open_log_file(void);
 
 /**
  * destroy_core_object
@@ -165,15 +165,21 @@ int setup_core_object(struct core_object *co, struct dc_env *env, struct dc_erro
     co->mm = init_mem_manager();
     if (!co->mm)
     {
+        (void) fprintf(stderr, "Could not initialize memory manager: %s\n", strerror(errno));
         return -1;
     }
     
-    co->log_file = open_log_file(NULL);
+    co->log_file = open_log_file();
+    if (!co->log_file)
+    {
+        (void) fprintf(stderr, "Could not open %s: %s\n", LOG_FILE_NAME, strerror(errno));
+        return -1;
+    }
     
     return 0;
 }
 
-FILE *open_log_file(struct core_object *co)
+FILE *open_log_file(void)
 {
     FILE *log_file;
     const char *file_name;
@@ -181,10 +187,7 @@ FILE *open_log_file(struct core_object *co)
     file_name = LOG_FILE_NAME;
     
     log_file = fopen(file_name, LOG_OPEN_MODE);
-    if (!log_file)
-    {
-        perror("error opening log file");
-    }
+    // If an error occurs will return null.
     
     return log_file;
 }
