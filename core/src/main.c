@@ -26,6 +26,9 @@ struct application_settings
 // TODO: Need documentation.
 static struct dc_application_settings *create_settings(const struct dc_env *env, struct dc_error *err);
 
+// TODO: Need documentation.
+static int run(const struct dc_env *env, struct dc_error *err, struct dc_application_settings *settings);
+
 /**
  * setup_core_object
  * <p>
@@ -49,15 +52,12 @@ FILE *open_log_file(void);
 /**
  * destroy_core_object
  * <p>
- * Destroy the core object and all of its fields.
+ * Destroy the core object and all of its fields. Does not destroy the state object;
+ * the state object must be destroyed by the library destroy_server function.
  * </p>
  * @param co the core object
- * @return 0 on success. -1 and set errno on failure
  */
-int destroy_core_object(struct core_object *co);
-
-// TODO: Need documentation.
-static int run(const struct dc_env *env, struct dc_error *err, struct dc_application_settings *settings);
+void destroy_core_object(struct core_object *co);
 
 // TODO: Need documentation.
 static int destroy_settings(const struct dc_env *env, struct dc_error *err, struct dc_application_settings **psettings);
@@ -204,14 +204,13 @@ FILE *open_log_file(void)
     return log_file;
 }
 
-int destroy_core_object(struct core_object *co)
+void destroy_core_object(struct core_object *co)
 {
     if (co->log_file)
     {
         fclose(co->log_file);
     }
-    
-    return 0;
+    free_mem_manager(co->mm);
 }
 
 static int destroy_settings(const struct dc_env *env, struct dc_error *err, struct dc_application_settings **psettings)

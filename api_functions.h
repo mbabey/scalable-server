@@ -6,7 +6,7 @@
 /**
  * initialize
  * <p>
- * Initialize the server state and set up the server to listen for connections.
+ * Initialize the state object and set up the server to listen for connections.
  * Fill fields in the core_object, open the listening socket, and set up the state.
  * </p>
  * @param co the core data object
@@ -28,7 +28,7 @@ int run_server(struct core_object *co);
 /**
  * destroy
  * <p>
- * Destroy the state. Free memory, terminate child processes, and close open files.
+ * Destroy the state object. Free memory, terminate child processes, and close open files.
  * </p>
  * @param co the core object
  * @return 0 on success. Set errno and return -1 on failure.

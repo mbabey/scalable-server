@@ -17,7 +17,7 @@ struct core_object {
     struct dc_error *err;
     struct memory_manager *mm;
     FILE *log_file;
-    struct state_object *state;
+    struct state_object *so;
 };
 
 #endif //SCALABLE_SERVER_OBJECTS_H

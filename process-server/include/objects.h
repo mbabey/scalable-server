@@ -4,11 +4,11 @@
 #include <netinet/in.h>
 #include <semaphore.h>
 
-#define
+#define NUM_CHILD_PROCESSES 4 // Should be a power of 2 for magic indexing purposes.
 
 struct state_object
 {
-    pid_t                child_pid[];
+    pid_t                child_pid[NUM_CHILD_PROCESSES];
     sem_t                pipe_sem_r;
     sem_t                pipe_sem_w;
     sem_t                log_sem;
@@ -16,7 +16,6 @@ struct state_object
     struct child_struct  *child;
     struct parent_struct *parent;
 };
-
 
 struct child_struct
 {
