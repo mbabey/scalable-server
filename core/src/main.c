@@ -165,14 +165,14 @@ int setup_core_object(struct core_object *co, struct dc_env *env, struct dc_erro
     co->mm = init_mem_manager();
     if (!co->mm)
     {
-        (void) fprintf(stderr, "Could not initialize memory manager: %s\n", strerror(errno));
+        (void) fprintf(stderr, "Fatal: could not initialize memory manager: %s\n", strerror(errno));
         return -1;
     }
     
     co->log_file = open_log_file();
     if (!co->log_file)
     {
-        (void) fprintf(stderr, "Could not open %s: %s\n", LOG_FILE_NAME, strerror(errno));
+        (void) fprintf(stderr, "Fatal: could not open %s: %s\n", LOG_FILE_NAME, strerror(errno));
         return -1;
     }
     
