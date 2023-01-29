@@ -35,7 +35,7 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
  * @param co the core object
  * @return 0 on success. On failure, -1 and set errno
  */
-int setup_core_object(struct core_object *co, struct dc_env *env, struct dc_error *err);
+int setup_core_object(struct core_object *co, const struct dc_env *env, struct dc_error *err);
 
 /**
  * open_log_file
@@ -68,17 +68,17 @@ trace_reporter(const struct dc_env *env, const char *file_name, const char *func
 
 int main(int argc, char *argv[])
 {
-    int ret_val;
-    dc_env_tracer tracer;
+    int                        ret_val;
+    dc_env_tracer              tracer;
     struct dc_env              *env;
     struct dc_error            *err;
     struct dc_application_info *info;
     
-    tracer  = NULL;
+    tracer = NULL;
     //tracer = trace_reporter;
-    err     = dc_error_create(false);
-    env     = dc_env_create(err, false, tracer);
-    info    = dc_application_info_create(env, err, "scalable_server");
+    err    = dc_error_create(false);
+    env    = dc_env_create(err, false, tracer);
+    info   = dc_application_info_create(env, err, "scalable_server");
     
     ret_val = dc_application_run(env, err, info, create_settings, destroy_settings, run, dc_default_create_lifecycle,
                                  dc_default_destroy_lifecycle, NULL, argc, argv);
@@ -141,28 +141,40 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
 {
     DC_TRACE(env);
     struct application_settings *app_settings;
-    int                         ret_val = 0;
-    const char *library;
+    const char                  *library;
+    
+    int                ret_val;
+    struct core_object co;
     
     app_settings = (struct application_settings *) settings;
     library      = dc_setting_string_get(env, app_settings->library);
     
     // create core object
-    
-    // SETUP(library, core)
-    // HANDLE(library, core)
-    // DESTROY(library, core)
+    ret_val = setup_core_object(&co, env, err);
+    if (!ret_val)
+    {
+        // Open library with void *lib = dlopen(libname, RTLD_LAZY);
+        
+        // link api_functions to function pointers with dlsym(lib, "function_name");
+        
+        // run functions
+        // initialize_server(co);
+        // run_server(co)
+        // close_server(co);
+        
+        // Close library with dlclose(lib);
+    }
     
     return ret_val;
 }
 
-int setup_core_object(struct core_object *co, struct dc_env *env, struct dc_error *err)
+int setup_core_object(struct core_object *co, const struct dc_env *env, struct dc_error *err)
 {
     memset(co, 0, sizeof(struct core_object));
     
     co->env = env;
     co->err = err;
-    co->mm = init_mem_manager();
+    co->mm  = init_mem_manager();
     if (!co->mm)
     {
         (void) fprintf(stderr, "Fatal: could not initialize memory manager: %s\n", strerror(errno));
@@ -181,7 +193,7 @@ int setup_core_object(struct core_object *co, struct dc_env *env, struct dc_erro
 
 FILE *open_log_file(void)
 {
-    FILE *log_file;
+    FILE       *log_file;
     const char *file_name;
     
     file_name = LOG_FILE_NAME;
@@ -194,6 +206,11 @@ FILE *open_log_file(void)
 
 int destroy_core_object(struct core_object *co)
 {
+    if (co->log_file)
+    {
+        fclose(co->log_file);
+    }
+    
     return 0;
 }
 

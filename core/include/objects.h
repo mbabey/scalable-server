@@ -13,7 +13,7 @@
  * </p>
  */
 struct core_object {
-    struct dc_env *env;
+    const struct dc_env *env;
     struct dc_error *err;
     struct memory_manager *mm;
     FILE *log_file;

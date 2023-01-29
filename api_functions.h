@@ -12,7 +12,7 @@
  * @param co the core data object
  * @return the listen socket fd on success. Set errno and return -1 on failure.
  */
-int initialize(struct core_object *co);
+int initialize_server(struct core_object *co);
 
 /**
  * run_server
@@ -33,6 +33,6 @@ int run_server(struct core_object *co);
  * @param co the core object
  * @return 0 on success. Set errno and return -1 on failure.
  */
-int destroy(struct core_object *co);
+int close_server(struct core_object *co);
 
 #endif //SCALABLE_SERVER_API_FUNCTIONS_H
