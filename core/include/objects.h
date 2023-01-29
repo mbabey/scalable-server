@@ -7,15 +7,14 @@
  * core_object
  * <p>
  * Holds the core information for the execution of the framework, regardless
- * of the library loaded. Includes dc_env, dc_error, dc_application_info,
- * memory_manager, log file, and state_object. state_object contains
- * library-dependent data, and will be assigned and handled by the loaded library.
+ * of the library loaded. Includes dc_env, dc_error, memory_manager, log file,
+ * and state_object. state_object contains library-dependent data, and will be
+ * assigned and handled by the loaded library.
  * </p>
  */
 struct core_object {
     struct dc_env *env;
     struct dc_error *err;
-    struct dc_application_info *info;
     struct memory_manager *mm;
     FILE *log_file;
     struct state_object *state;

@@ -12,6 +12,9 @@
 #include <string.h>
 #include <getopt.h>
 
+#define LOG_FILE_NAME "logs.csv"
+#define LOG_OPEN_MODE "w" // Mode is set to truncate for independent results from each experiment.
+
 // TODO: Need documentation
 struct application_settings
 {
@@ -20,8 +23,11 @@ struct application_settings
     // storing a struct is not possible, only use as app settings for now
 };
 
+// TODO: Need documentation.
+static struct dc_application_settings *create_settings(const struct dc_env *env, struct dc_error *err);
+
 /**
- * do_setup
+ * setup_core_object
  * <p>
  * Zero the core_object. Setup other objects and attach them to the core_object.
  * Open the log file and attach it to the core object.
@@ -29,16 +35,32 @@ struct application_settings
  * @param co the core object
  * @return 0 on success. On failure, -1 and set errno
  */
-int do_setup(struct core_object *co);
+int setup_core_object(struct core_object *co, struct dc_env *env, struct dc_error *err);
 
-// TODO: Need documentation.
-static struct dc_application_settings *create_settings(const struct dc_env *env, struct dc_error *err);
+/**
+ * open_log_file
+ * <p>
+ * Open the file to log the results of running the program.
+ * </p>
+ * @return The log file. NULL and set errno on failure.
+ */
+FILE *open_log_file(struct core_object *co);
 
-// TODO: Need documentation.
-static int destroy_settings(const struct dc_env *env, struct dc_error *err, struct dc_application_settings **psettings);
+/**
+ * destroy_core_object
+ * <p>
+ * Destroy the core object and all of its fields.
+ * </p>
+ * @param co the core object
+ * @return 0 on success. -1 and set errno on failure
+ */
+int destroy_core_object(struct core_object *co);
 
 // TODO: Need documentation.
 static int run(const struct dc_env *env, struct dc_error *err, struct dc_application_settings *settings);
+
+// TODO: Need documentation.
+static int destroy_settings(const struct dc_env *env, struct dc_error *err, struct dc_application_settings **psettings);
 
 // TODO: Need documentation.
 static void
@@ -46,11 +68,11 @@ trace_reporter(const struct dc_env *env, const char *file_name, const char *func
 
 int main(int argc, char *argv[])
 {
+    int ret_val;
     dc_env_tracer tracer;
     struct dc_env              *env;
     struct dc_error            *err;
     struct dc_application_info *info;
-    int ret_val;
     
     tracer  = NULL;
     //tracer = trace_reporter;
@@ -61,26 +83,10 @@ int main(int argc, char *argv[])
     ret_val = dc_application_run(env, err, info, create_settings, destroy_settings, run, dc_default_create_lifecycle,
                                  dc_default_destroy_lifecycle, NULL, argc, argv);
     
-    
-    
     dc_application_info_destroy(env, &info);
     dc_error_reset(err);
     
-    
-    
     return ret_val;
-}
-
-int do_setup(struct core_object *co)
-{
-    memset(co, 0, sizeof(struct core_object));
-    
-    struct dc_env *env;
-    struct dc_error *err;
-    struct memory_manager *mm;
-    FILE *log_file;
-    
-    return 0;
 }
 
 static struct dc_application_settings *create_settings(const struct dc_env *env, struct dc_error *err)
@@ -131,24 +137,6 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
     return (struct dc_application_settings *) settings;
 }
 
-static int destroy_settings(const struct dc_env *env, struct dc_error *err, struct dc_application_settings **psettings)
-{
-    struct application_settings *app_settings;
-    
-    DC_TRACE(env);
-    app_settings = (struct application_settings *) *psettings;
-    dc_setting_string_destroy(env, &app_settings->library);
-    dc_free(env, app_settings->opts.opts);
-    dc_free(env, *psettings);
-    
-    if (dc_env_is_zero_free(env))
-    {
-        *psettings = NULL;
-    }
-    
-    return 0;
-}
-
 static int run(const struct dc_env *env, struct dc_error *err, struct dc_application_settings *settings)
 {
     DC_TRACE(env);
@@ -166,6 +154,62 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
     // DESTROY(library, core)
     
     return ret_val;
+}
+
+int setup_core_object(struct core_object *co, struct dc_env *env, struct dc_error *err)
+{
+    memset(co, 0, sizeof(struct core_object));
+    
+    co->env = env;
+    co->err = err;
+    co->mm = init_mem_manager();
+    if (!co->mm)
+    {
+        return -1;
+    }
+    
+    co->log_file = open_log_file(NULL);
+    
+    return 0;
+}
+
+FILE *open_log_file(struct core_object *co)
+{
+    FILE *log_file;
+    const char *file_name;
+    
+    file_name = LOG_FILE_NAME;
+    
+    log_file = fopen(file_name, LOG_OPEN_MODE);
+    if (!log_file)
+    {
+        perror("error opening log file");
+    }
+    
+    return log_file;
+}
+
+int destroy_core_object(struct core_object *co)
+{
+    return 0;
+}
+
+static int destroy_settings(const struct dc_env *env, struct dc_error *err, struct dc_application_settings **psettings)
+{
+    struct application_settings *app_settings;
+    
+    DC_TRACE(env);
+    app_settings = (struct application_settings *) *psettings;
+    dc_setting_string_destroy(env, &app_settings->library);
+    dc_free(env, app_settings->opts.opts);
+    dc_free(env, *psettings);
+    
+    if (dc_env_is_zero_free(env))
+    {
+        *psettings = NULL;
+    }
+    
+    return 0;
 }
 
 static void
