@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-struct core {
+struct core_object {
     struct dc_env *env;
     struct dc_err *err;
     struct memory_manager *mm;
