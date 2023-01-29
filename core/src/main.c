@@ -5,6 +5,8 @@
 #include <dc_c/dc_stdlib.h>
 #include <dc_c/dc_string.h>
 #include <dc_c/dc_stdio.h>
+#include <mem_manager/manager.h>
+
 #include <getopt.h>
 
 // TODO: Need documentation
@@ -41,10 +43,14 @@ int main(int argc, char *argv[])
     err     = dc_error_create(false);
     env     = dc_env_create(err, false, tracer);
     info    = dc_application_info_create(env, err, "scalable_server");
+    
     ret_val = dc_application_run(env, err, info, create_settings, destroy_settings, run, dc_default_create_lifecycle,
                                  dc_default_destroy_lifecycle, NULL, argc, argv);
+    
     dc_application_info_destroy(env, &info);
     dc_error_reset(err);
+    
+    
     
     return ret_val;
 }
@@ -84,7 +90,7 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
                     dc_string_from_string,
                     "library",
                     dc_string_from_config,
-                    "one-to-one"}, // TODO what should the default library be?
+                    "one-to-one"}, // one-to-one is the default library.
     };
     
     settings->opts.opts_count = (sizeof(opts) / sizeof(struct options)) + 1;
