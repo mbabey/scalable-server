@@ -11,6 +11,7 @@ set(SOURCE_DIR src)
 set(INCLUDE_DIR include)
 set(SOURCE_LIST
         ${SOURCE_DIR}/main.c
+        ${SOURCE_DIR}/api_functions.c
         )
 set(HEADER_LIST
         ${INCLUDE_DIR}/objects.h
