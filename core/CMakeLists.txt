@@ -14,7 +14,6 @@ set(SOURCE_LIST
         ${SOURCE_DIR}/util.c
         )
 set(HEADER_LIST
-        ${INCLUDE_DIR}/objects.h
         ${INCLUDE_DIR}/util.h
         ${INCLUDE_DIR}/objects.h
         ../api_functions.h
