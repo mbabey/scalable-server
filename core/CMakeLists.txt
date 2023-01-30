@@ -16,6 +16,8 @@ set(SOURCE_LIST
 set(HEADER_LIST
         ${INCLUDE_DIR}/objects.h
         ${INCLUDE_DIR}/util.h
+        ${INCLUDE_DIR}/objects.h
+        ../api_functions.h
         )
 
 set(SANITIZE TRUE)

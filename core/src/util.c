@@ -21,6 +21,11 @@ void *open_lib(const char *lib_name, int mode)
     return lib;
 }
 
+int close_lib(void * lib) {
+    return dlclose(lib);
+    // If an error occurs will return null.
+}
+
 void *get_func(void *lib, const char *func_name)
 {
     void *func;

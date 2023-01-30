@@ -4,6 +4,14 @@
 #include "./core/include/objects.h"
 
 /**
+ * api
+ * <p>
+ * Definition of an API function pointer.
+ * </p>
+ */
+typedef int (*api) (struct core_object * co);
+
+/**
  * initialize
  * <p>
  * Initialize the state object and set up the server to listen for connections.

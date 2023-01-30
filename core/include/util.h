@@ -26,14 +26,24 @@ FILE *open_file(const char * file_name, const char * mode);
 void *open_lib(const char *lib_name, int mode);
 
 /**
+ * close_lib
+ * <p>
+ * Close a dynamic library.
+ * </p>
+ * @param lib the library to close.
+ * @return 0 on success. On failure, -1 and set errno.
+ */
+int close_lib(void * lib);
+
+/**
  * get_func
  * <p>
- * Get a function from a dynamic library.
+ * Get a function from a dynamic library. Function needs to be cast to the appropriate pointer.
  * </p>
  * @param lib the library to get from.
  * @param func_name the name of the function to get.
  * @return The function. NULL and set errno on failure.
  */
-void *get_func(void *lib, const char *func_name)
+void *get_func(void *lib, const char *func_name);
 
 #endif //SCALABLE_SERVER_UTIL_H
