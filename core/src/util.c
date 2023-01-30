@@ -11,7 +11,7 @@ FILE *open_file(const char * file_name, const char * mode)
     return file;
 }
 
-void * open_lib(const char * lib_name, int mode)
+void *open_lib(const char *lib_name, int mode)
 {
     void *lib;
 
@@ -19,4 +19,14 @@ void * open_lib(const char * lib_name, int mode)
     // If an error occurs will return null.
 
     return lib;
+}
+
+void *get_func(void *lib, const char *func_name)
+{
+    void *func;
+
+    func = dlsym(lib, func_name);
+    // If an error occurs will return null.
+
+    return func;
 }

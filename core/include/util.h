@@ -23,7 +23,17 @@ FILE *open_file(const char * file_name, const char * mode);
  * @param mode the mode to open the library with.
  * @return The library. NULL and set errno on failure.
  */
+void *open_lib(const char *lib_name, int mode);
 
-void * open_lib(const char * lib_name, int mode);
+/**
+ * get_func
+ * <p>
+ * Get a function from a dynamic library.
+ * </p>
+ * @param lib the library to get from.
+ * @param func_name the name of the function to get.
+ * @return The function. NULL and set errno on failure.
+ */
+void *get_func(void *lib, const char *func_name)
 
 #endif //SCALABLE_SERVER_UTIL_H
