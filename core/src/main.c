@@ -6,8 +6,8 @@
 #include <dc_application/options.h>
 #include <dc_c/dc_stdlib.h>
 #include <dc_c/dc_string.h>
-#include <dc_c/dc_stdio.h>
 #include <mem_manager/manager.h>
+#include <util.h>
 
 #include <string.h>
 #include <getopt.h>
@@ -39,15 +39,6 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
  * @return 0 on success. On failure, -1 and set errno
  */
 int setup_core_object(struct core_object *co, const struct dc_env *env, struct dc_error *err);
-
-/**
- * open_log_file
- * <p>
- * Open the file to log the results of running the program.
- * </p>
- * @return The log file. NULL and set errno on failure.
- */
-FILE *open_log_file(void);
 
 /**
  * destroy_core_object
@@ -131,7 +122,7 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
     settings->opts.opts_size  = sizeof(struct options);
     settings->opts.opts       = dc_calloc(env, err, settings->opts.opts_count, settings->opts.opts_size);
     dc_memcpy(env, settings->opts.opts, opts, sizeof(opts));
-    settings->opts.flags      = "m:";
+    settings->opts.flags      = "l:";
     settings->opts.env_prefix = "SCALABLE_SERVER_";
     
     return (struct dc_application_settings *) settings;
@@ -181,7 +172,7 @@ int setup_core_object(struct core_object *co, const struct dc_env *env, struct d
         return -1;
     }
     
-    co->log_file = open_log_file();
+    co->log_file = open_file(LOG_FILE_NAME, LOG_OPEN_MODE);
     if (!co->log_file)
     {
         (void) fprintf(stderr, "Fatal: could not open %s: %s\n", LOG_FILE_NAME, strerror(errno));
@@ -189,19 +180,6 @@ int setup_core_object(struct core_object *co, const struct dc_env *env, struct d
     }
     
     return 0;
-}
-
-FILE *open_log_file(void)
-{
-    FILE       *log_file;
-    const char *file_name;
-    
-    file_name = LOG_FILE_NAME;
-    
-    log_file = fopen(file_name, LOG_OPEN_MODE);
-    // If an error occurs will return null.
-    
-    return log_file;
 }
 
 void destroy_core_object(struct core_object *co)
