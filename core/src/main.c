@@ -1,4 +1,6 @@
-#include "../include/objects.h"
+#include "objects.h"
+#include "util.h"
+#include "../../api_functions.h"
 
 #include <dc_env/env.h>
 #include <dc_error/error.h>
@@ -6,16 +8,39 @@
 #include <dc_application/options.h>
 #include <dc_c/dc_stdlib.h>
 #include <dc_c/dc_string.h>
-#include <dc_c/dc_stdio.h>
 #include <mem_manager/manager.h>
 
 #include <string.h>
 #include <getopt.h>
+#include <dlfcn.h>
 
 #define LOG_FILE_NAME "logs.csv"
 #define LOG_OPEN_MODE "w" // Mode is set to truncate for independent results from each experiment.
 
-// TODO: Need documentation
+#define DEFAULT_LIBRARY "../../one-to-one/cmake-build-debug/libone-to-one.dylib" // TODO: relative path should be changed to absolute.
+#define API_INIT "initialize_server"
+#define API_RUN "run_server"
+#define API_CLOSE "close_server"
+
+/**
+ * api_functions
+ * <p>
+ * Struct containing pointers to all API functions.
+ * </p>
+ */
+struct api_functions
+{
+    api initialize_server;
+    api run_server;
+    api close_server;
+};
+
+/**
+ * application_settings
+ * <p>
+ * Struct of settings that control the application.
+ * </p>
+ */
 struct application_settings
 {
     struct dc_opt_settings   opts;
@@ -23,10 +48,27 @@ struct application_settings
     // storing a struct is not possible, only use as app settings for now
 };
 
-// TODO: Need documentation.
+/**
+ * create_settings
+ * <p>
+ * Defines application settings and allocates memory for an application settings struct.
+ * </p>
+ * @param env pointer to a dc_env struct.
+ * @param err pointer to a dc_error struct.
+ * @return a pointer to the settings object.
+ */
 static struct dc_application_settings *create_settings(const struct dc_env *env, struct dc_error *err);
 
-// TODO: Need documentation.
+/**
+ * run
+ * <p>
+ * Runs the application.
+ * </p>
+ * @param env pointer to a dc_env struct.
+ * @param err pointer to a dc_error struct.
+ * @param settings pointer to the application settings struct.
+ * @return 0. -1 if an error occurred.
+ */
 static int run(const struct dc_env *env, struct dc_error *err, struct dc_application_settings *settings);
 
 /**
@@ -36,18 +78,9 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
  * Open the log file and attach it to the core object.
  * </p>
  * @param co the core object
- * @return 0 on success. On failure, -1 and set errno
+ * @return 0 on success. On failure, -1 and set errno.
  */
 int setup_core_object(struct core_object *co, const struct dc_env *env, struct dc_error *err);
-
-/**
- * open_log_file
- * <p>
- * Open the file to log the results of running the program.
- * </p>
- * @return The log file. NULL and set errno on failure.
- */
-FILE *open_log_file(void);
 
 /**
  * destroy_core_object
@@ -59,10 +92,40 @@ FILE *open_log_file(void);
  */
 void destroy_core_object(struct core_object *co);
 
-// TODO: Need documentation.
+/**
+ * get_api
+ * <p>
+ * Open a given library and attempt to load API functions into the api_functions struct.
+ * </p>
+ * @param api_functions struct containing API functions.
+ * @param lib_name name of the library.
+ * @param env pointer to a dc_env struct.
+ * @return The opened library. NULL and set errno on failure.
+ */
+static void * get_api(struct api_functions * api, const char * lib_name, const struct dc_env * env);
+
+/**
+ * destroy_settings
+ * <p>
+ * Frees memory allocated for the application settings struct.
+ * </p>
+ * @param env pointer to a dc_env struct.
+ * @param err pointer to a dc_error struct.
+ * @param psettings double pointer to the application settings struct to free.
+ * @return 0.
+ */
 static int destroy_settings(const struct dc_env *env, struct dc_error *err, struct dc_application_settings **psettings);
 
-// TODO: Need documentation.
+/**
+ * trace_reporter
+ * <p>
+ * formatting function for trace reporting.
+ * </p>
+ * @param env pointer to a dc_env struct
+ * @param file_name name of the file the trace occurs in.
+ * @param function_name name of the function the trace occurs in.
+ * @param line_number the line the trace occurs in.
+ */
 static void
 trace_reporter(const struct dc_env *env, const char *file_name, const char *function_name, size_t line_number);
 
@@ -73,7 +136,6 @@ int main(int argc, char *argv[])
     struct dc_env              *env;
     struct dc_error            *err;
     struct dc_application_info *info;
-    
     tracer = NULL;
     //tracer = trace_reporter;
     err    = dc_error_create(false);
@@ -85,7 +147,6 @@ int main(int argc, char *argv[])
     
     dc_application_info_destroy(env, &info);
     dc_error_reset(err);
-    
     return ret_val;
 }
 
@@ -124,14 +185,14 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
                     dc_string_from_string,
                     "library",
                     dc_string_from_config,
-                    "one-to-one"}, // one-to-one is the default library.
+                    DEFAULT_LIBRARY},
     };
     
     settings->opts.opts_count = (sizeof(opts) / sizeof(struct options)) + 1;
     settings->opts.opts_size  = sizeof(struct options);
     settings->opts.opts       = dc_calloc(env, err, settings->opts.opts_count, settings->opts.opts_size);
     dc_memcpy(env, settings->opts.opts, opts, sizeof(opts));
-    settings->opts.flags      = "m:";
+    settings->opts.flags      = "l:";
     settings->opts.env_prefix = "SCALABLE_SERVER_";
     
     return (struct dc_application_settings *) settings;
@@ -145,6 +206,7 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
     
     int                ret_val;
     struct core_object co;
+    void * lib;
     
     app_settings = (struct application_settings *) settings;
     library      = dc_setting_string_get(env, app_settings->library);
@@ -153,23 +215,36 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
     ret_val = setup_core_object(&co, env, err);
     if (!ret_val)
     {
-        // Open library with void *lib = dlopen(libname, RTLD_LAZY);
-        
-        // link api_functions to function pointers with dlsym(lib, "function_name");
-        
-        // run functions
-        // initialize_server(co);
-        // run_server(co)
-        // close_server(co);
-        
-        // Close library with dlclose(lib);
+        struct api_functions api;
+        lib = get_api(&api, library, env);
+        if (lib == NULL)
+        {
+            ret_val = -1;
+        } else {
+            // TODO: how do we want to handle return values here?
+            ret_val = api.initialize_server(&co);
+            // check error
+
+            ret_val = api.run_server(&co);
+            // check error
+
+            ret_val = api.close_server(&co);
+            // check error
+
+            ret_val = close_lib(lib);
+            if (ret_val != 0)
+            {
+                (void) fprintf(stderr, "Fatal: could not close library %s: %s\n", library, strerror(errno));
+            }
+        }
+        destroy_core_object(&co);
     }
-    
     return ret_val;
 }
 
 int setup_core_object(struct core_object *co, const struct dc_env *env, struct dc_error *err)
 {
+    DC_TRACE(env);
     memset(co, 0, sizeof(struct core_object));
     
     co->env = env;
@@ -181,7 +256,7 @@ int setup_core_object(struct core_object *co, const struct dc_env *env, struct d
         return -1;
     }
     
-    co->log_file = open_log_file();
+    co->log_file = open_file(LOG_FILE_NAME, LOG_OPEN_MODE);
     if (!co->log_file)
     {
         (void) fprintf(stderr, "Fatal: could not open %s: %s\n", LOG_FILE_NAME, strerror(errno));
@@ -191,19 +266,6 @@ int setup_core_object(struct core_object *co, const struct dc_env *env, struct d
     return 0;
 }
 
-FILE *open_log_file(void)
-{
-    FILE       *log_file;
-    const char *file_name;
-    
-    file_name = LOG_FILE_NAME;
-    
-    log_file = fopen(file_name, LOG_OPEN_MODE);
-    // If an error occurs will return null.
-    
-    return log_file;
-}
-
 void destroy_core_object(struct core_object *co)
 {
     if (co->log_file)
@@ -211,6 +273,46 @@ void destroy_core_object(struct core_object *co)
         fclose(co->log_file);
     }
     free_mem_manager(co->mm);
+}
+
+static void * get_api(struct api_functions * api, const char * lib_name, const struct dc_env * env)
+{
+    DC_TRACE(env);
+    void *lib;
+    bool get_func_err;
+
+    lib = open_lib(lib_name, RTLD_LAZY);
+    if (lib == NULL)
+    {
+        (void) fprintf(stderr, "Fatal: could open API library %s: %s\n", lib_name, strerror(errno));
+        return lib;
+    }
+
+    api->initialize_server = get_func(lib, API_INIT);
+    if (api->initialize_server == NULL)
+    {
+        (void) fprintf(stderr, "Fatal: could not load API function %s: %s\n", API_INIT, strerror(errno));
+        get_func_err = true;
+    }
+    api->run_server = get_func(lib, API_RUN);
+    if (api->run_server == NULL)
+    {
+        (void) fprintf(stderr, "Fatal: could not load API function %s: %s\n", API_RUN, strerror(errno));
+        get_func_err = true;
+    }
+    api->close_server = get_func(lib, API_CLOSE);
+    if (api->close_server == NULL)
+    {
+        (void) fprintf(stderr, "Fatal: could not load API function %s: %s\n", API_CLOSE, strerror(errno));
+        get_func_err = true;
+    }
+
+    if (get_func_err) {
+        close_lib(lib);
+        return NULL;
+    }
+
+    return lib;
 }
 
 static int destroy_settings(const struct dc_env *env, struct dc_error *err, struct dc_application_settings **psettings)

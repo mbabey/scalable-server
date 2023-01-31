@@ -11,9 +11,12 @@ set(SOURCE_DIR src)
 set(INCLUDE_DIR include)
 set(SOURCE_LIST
         ${SOURCE_DIR}/main.c
+        ${SOURCE_DIR}/util.c
         )
 set(HEADER_LIST
+        ${INCLUDE_DIR}/util.h
         ${INCLUDE_DIR}/objects.h
+        ../api_functions.h
         )
 
 set(SANITIZE TRUE)
@@ -146,6 +149,7 @@ find_library(LIBDC_UTIL dc_util REQUIRED)
 find_library(LIBDC_FSM dc_fsm REQUIRED)
 find_library(LIB_CONFIG config REQUIRED)
 find_library(LIBDC_APPLICATION dc_application REQUIRED)
+find_library(MEM_MANAGER mem_manager REQUIRED)
 
 target_link_libraries(scalable_server PUBLIC ${LIBDC_ERROR})
 target_link_libraries(scalable_server PUBLIC ${LIBDC_ENV})
@@ -156,3 +160,4 @@ target_link_libraries(scalable_server PUBLIC ${LIBDC_UTIL})
 target_link_libraries(scalable_server PUBLIC ${LIBDC_FSM})
 target_link_libraries(scalable_server PUBLIC ${LIB_CONFIG})
 target_link_libraries(scalable_server PUBLIC ${LIBDC_APPLICATION})
+target_link_libraries(scalable_server PUBLIC ${MEM_MANAGER})
