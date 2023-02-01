@@ -292,7 +292,6 @@ int setup_core_object(struct core_object *co, const struct dc_env *env, struct d
         (void) fprintf(stderr, "Fatal: could not initialize memory manager: %s\n", strerror(errno));
         return -1;
     }
-    
     co->log_file = open_file(LOG_FILE_NAME, LOG_OPEN_MODE);
     if (!co->log_file)
     {
@@ -300,8 +299,13 @@ int setup_core_object(struct core_object *co, const struct dc_env *env, struct d
         (void) fprintf(stderr, "Fatal: could not open %s: %s\n", LOG_FILE_NAME, strerror(errno));
         return -1;
     }
-    
-    co->listen_addr = assemble_listen_addr(port_num, ip_addr);
+    co->listen_addr = assemble_listen_addr(co->mm, port_num, ip_addr);
+    if (!co->listen_addr)
+    {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
+        (void) fprintf(stderr, "Fatal: could not assign server address: %s\n", strerror(errno));
+        return -1;
+    }
     
     return 0;
 }
