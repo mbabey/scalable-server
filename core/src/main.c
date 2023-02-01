@@ -1,18 +1,18 @@
+#include "../../api_functions.h"
 #include "objects.h"
 #include "util.h"
-#include "../../api_functions.h"
 
-#include <dc_env/env.h>
-#include <dc_error/error.h>
 #include <dc_application/application.h>
 #include <dc_application/options.h>
 #include <dc_c/dc_stdlib.h>
 #include <dc_c/dc_string.h>
+#include <dc_env/env.h>
+#include <dc_error/error.h>
 #include <mem_manager/manager.h>
 
-#include <string.h>
-#include <getopt.h>
 #include <dlfcn.h>
+#include <getopt.h>
+#include <string.h>
 
 
 #define DEFAULT_LIBRARY "../../one-to-one/cmake-build-debug/libone-to-one.dylib" // TODO: relative path should be changed to absolute.
@@ -263,6 +263,7 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
             ret_val = close_lib(lib);
             if (ret_val != 0)
             {
+                // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
                 (void) fprintf(stderr, "Fatal: could not close lib_name %s: %s\n", lib_name, strerror(errno));
             }
         }
@@ -281,6 +282,7 @@ int setup_core_object(struct core_object *co, const struct dc_env *env, struct d
     co->mm  = init_mem_manager();
     if (!co->mm)
     {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
         (void) fprintf(stderr, "Fatal: could not initialize memory manager: %s\n", strerror(errno));
         return -1;
     }
@@ -288,6 +290,7 @@ int setup_core_object(struct core_object *co, const struct dc_env *env, struct d
     co->log_file = open_file(LOG_FILE_NAME, LOG_OPEN_MODE);
     if (!co->log_file)
     {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
         (void) fprintf(stderr, "Fatal: could not open %s: %s\n", LOG_FILE_NAME, strerror(errno));
         return -1;
     }
@@ -299,7 +302,7 @@ void destroy_core_object(struct core_object *co)
 {
     if (co->log_file)
     {
-        fclose(co->log_file);
+        (void) fclose(co->log_file);
     }
     free_mem_manager(co->mm);
 }
@@ -310,31 +313,34 @@ static void *get_api(struct api_functions *api, const char *lib_name, const stru
     void *lib;
     bool get_func_err;
     
+    // NOLINTBEGIN(concurrency-mt-unsafe) : No threads here
     lib = open_lib(lib_name, RTLD_LAZY);
     if (lib == NULL)
     {
-        (void) fprintf(stderr, "Fatal: could open API library %s: %s\n", lib_name, strerror(errno));
+        (void) fprintf(stderr, "Fatal: could not open API library %s: %s\n", lib_name, strerror(errno));
         return lib;
     }
     
-    api->initialize_server = get_func(lib, API_INIT);
+    get_func_err = false;
+    api->initialize_server = (int (*)(struct core_object *)) get_func(lib, API_INIT);
     if (api->initialize_server == NULL)
     {
         (void) fprintf(stderr, "Fatal: could not load API function %s: %s\n", API_INIT, strerror(errno));
         get_func_err = true;
     }
-    api->run_server = get_func(lib, API_RUN);
+    api->run_server = (int (*)(struct core_object *)) get_func(lib, API_RUN);
     if (api->run_server == NULL)
     {
         (void) fprintf(stderr, "Fatal: could not load API function %s: %s\n", API_RUN, strerror(errno));
         get_func_err = true;
     }
-    api->close_server = get_func(lib, API_CLOSE);
+    api->close_server = (int (*)(struct core_object *)) get_func(lib, API_CLOSE);
     if (api->close_server == NULL)
     {
         (void) fprintf(stderr, "Fatal: could not load API function %s: %s\n", API_CLOSE, strerror(errno));
         get_func_err = true;
     }
+    // NOLINTEND(concurrency-mt-unsafe)
     
     if (get_func_err)
     {
@@ -366,5 +372,5 @@ static int destroy_settings(const struct dc_env *env, struct dc_error *err, stru
 static void
 trace_reporter(const struct dc_env *env, const char *file_name, const char *function_name, size_t line_number)
 {
-    fprintf(stdout, "TRACE: %s : %s : @ %zu\n", file_name, function_name, line_number);
+    (void) fprintf(stdout, "TRACE: %s : %s : @ %zu\n", file_name, function_name, line_number);
 }
