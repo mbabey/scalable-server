@@ -2,7 +2,6 @@
 
 #include <arpa/inet.h>
 #include <dlfcn.h>
-#include <netinet/in.h>
 #include <string.h>
 
 FILE *open_file(const char *file_name, const char *mode)
@@ -15,8 +14,7 @@ FILE *open_file(const char *file_name, const char *mode)
     return file;
 }
 
-int assemble_listen_addr(struct sockaddr_in *listen_addr, const in_port_t port_num, const char *ip_addr,
-                         struct memory_manager *mm)
+int assemble_listen_addr(struct sockaddr_in *listen_addr, const in_port_t port_num, const char *ip_addr)
 {
     int ret_val;
     

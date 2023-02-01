@@ -299,7 +299,7 @@ int setup_core_object(struct core_object *co, const struct dc_env *env, struct d
         (void) fprintf(stderr, "Fatal: could not open %s: %s\n", LOG_FILE_NAME, strerror(errno));
         return -1;
     }
-    co->listen_addr = assemble_listen_addr(NULL, port_num, ip_addr, co->mm);
+    co->listen_addr = assemble_listen_addr(NULL, port_num, ip_addr);
     if (!co->listen_addr)
     {
         // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here

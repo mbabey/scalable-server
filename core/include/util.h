@@ -28,8 +28,7 @@ FILE *open_file(const char * file_name, const char * mode);
  * @param mm the memory manager object
  * @return 0 on success, -1 and set errno on failure.
  */
-int assemble_listen_addr(struct sockaddr_in *listen_addr, in_port_t port_num, const char *ip_addr,
-                         struct memory_manager *mm);
+int assemble_listen_addr(struct sockaddr_in *listen_addr, const in_port_t port_num, const char *ip_addr);
 
 /**
  * open_lib
