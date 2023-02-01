@@ -300,7 +300,7 @@ int setup_core_object(struct core_object *co, const struct dc_env *env, struct d
         return -1;
     }
     
-    if (assemble_listen_addr(&co->listen_addr, port_num, ip_addr))
+    if (assemble_listen_addr(&co->listen_addr, port_num, ip_addr) == -1)
     {
         // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
         (void) fprintf(stderr, "Fatal: could not assign server address: %s\n", strerror(errno));
