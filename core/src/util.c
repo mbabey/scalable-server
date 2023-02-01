@@ -4,10 +4,10 @@
 FILE *open_file(const char * file_name, const char * mode)
 {
     FILE *file;
-
-    file = fopen(file_name, mode);
+    
+    file = fopen(file_name, mode); // fixme: This is returning NULL and setting Read-only file system error
     // If an error occurs will return null.
-
+    
     return file;
 }
 

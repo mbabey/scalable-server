@@ -220,7 +220,7 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
     settings->opts.opts_size  = sizeof(struct options);
     settings->opts.opts       = dc_calloc(env, err, settings->opts.opts_count, settings->opts.opts_size);
     dc_memcpy(env, settings->opts.opts, opts, sizeof(opts));
-    settings->opts.flags      = "l:";
+    settings->opts.flags      = "l:p:i:";
     settings->opts.env_prefix = "SCALABLE_SERVER_";
     
     return (struct dc_application_settings *) settings;
@@ -230,21 +230,21 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
 {
     DC_TRACE(env);
     struct application_settings *app_settings;
-    const char                  *library;
+    const char                  *lib_name;
     
-    int                ret_val;
     struct core_object co;
-    void *lib;
+    int                ret_val;
+    void               *lib;
     
     app_settings = (struct application_settings *) settings;
-    library      = dc_setting_string_get(env, app_settings->library);
+    lib_name     = dc_setting_string_get(env, app_settings->library);
     
     // create core object
     ret_val = setup_core_object(&co, env, err);
-    if (!ret_val)
+    if (ret_val == 0)
     {
         struct api_functions api;
-        lib = get_api(&api, library, env);
+        lib = get_api(&api, lib_name, env);
         if (lib == NULL)
         {
             ret_val = -1;
@@ -263,7 +263,7 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
             ret_val = close_lib(lib);
             if (ret_val != 0)
             {
-                (void) fprintf(stderr, "Fatal: could not close library %s: %s\n", library, strerror(errno));
+                (void) fprintf(stderr, "Fatal: could not close lib_name %s: %s\n", lib_name, strerror(errno));
             }
         }
         destroy_core_object(&co);
