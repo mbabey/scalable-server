@@ -14,10 +14,14 @@
 #include <getopt.h>
 #include <dlfcn.h>
 
+
+#define DEFAULT_LIBRARY "../../one-to-one/cmake-build-debug/libone-to-one.dylib" // TODO: relative path should be changed to absolute.
+#define DEFAULT_PORT "5000"
+#define DEFAULT_IP "123.123.123.123" // TODO: will need to get the IP address by default
+
 #define LOG_FILE_NAME "logs.csv"
 #define LOG_OPEN_MODE "w" // Mode is set to truncate for independent results from each experiment.
 
-#define DEFAULT_LIBRARY "../../one-to-one/cmake-build-debug/libone-to-one.dylib" // TODO: relative path should be changed to absolute.
 #define API_INIT "initialize_server"
 #define API_RUN "run_server"
 #define API_CLOSE "close_server"
@@ -43,8 +47,10 @@ struct api_functions
  */
 struct application_settings
 {
-    struct dc_opt_settings   opts;
-    struct dc_setting_string *library;
+    struct dc_opt_settings      opts;
+    struct dc_setting_string    *library;
+    struct dc_setting_in_port_t *port_num;
+    struct dc_setting_string    *ip_addr;
     // storing a struct is not possible, only use as app settings for now
 };
 
@@ -102,7 +108,7 @@ void destroy_core_object(struct core_object *co);
  * @param env pointer to a dc_env struct.
  * @return The opened library. NULL and set errno on failure.
  */
-static void * get_api(struct api_functions * api, const char * lib_name, const struct dc_env * env);
+static void *get_api(struct api_functions *api, const char *lib_name, const struct dc_env *env);
 
 /**
  * destroy_settings
@@ -164,6 +170,8 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
     
     settings->opts.parent.config_path = dc_setting_path_create(env, err);
     settings->library                 = dc_setting_string_create(env, err);
+    settings->port_num                = dc_setting_in_port_t_create(env, err);
+    settings->ip_addr                 = dc_setting_string_create(env, err);
     
     struct options opts[] = {
             {(struct dc_setting *) settings->opts.parent.config_path,
@@ -186,6 +194,26 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
                     "library",
                     dc_string_from_config,
                     DEFAULT_LIBRARY},
+            {(struct dc_setting *) settings->port_num,
+                    dc_options_set_in_port_t,
+                    "port",
+                    required_argument,
+                    'p',
+                    "PORT",
+                    dc_in_port_t_from_string,
+                    "port",
+                    dc_in_port_t_from_config,
+                    DEFAULT_PORT},
+            {(struct dc_setting *) settings->ip_addr,
+                    dc_options_set_string,
+                    "ip-addr",
+                    required_argument,
+                    'i',
+                    "IP_ADDR",
+                    dc_string_from_string,
+                    "ip-addr",
+                    dc_string_from_config,
+                    DEFAULT_IP},
     };
     
     settings->opts.opts_count = (sizeof(opts) / sizeof(struct options)) + 1;
@@ -206,7 +234,7 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
     
     int                ret_val;
     struct core_object co;
-    void * lib;
+    void *lib;
     
     app_settings = (struct application_settings *) settings;
     library      = dc_setting_string_get(env, app_settings->library);
@@ -220,17 +248,18 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
         if (lib == NULL)
         {
             ret_val = -1;
-        } else {
+        } else
+        {
             // TODO: how do we want to handle return values here?
             ret_val = api.initialize_server(&co);
             // check error
-
+            
             ret_val = api.run_server(&co);
             // check error
-
+            
             ret_val = api.close_server(&co);
             // check error
-
+            
             ret_val = close_lib(lib);
             if (ret_val != 0)
             {
@@ -275,19 +304,19 @@ void destroy_core_object(struct core_object *co)
     free_mem_manager(co->mm);
 }
 
-static void * get_api(struct api_functions * api, const char * lib_name, const struct dc_env * env)
+static void *get_api(struct api_functions *api, const char *lib_name, const struct dc_env *env)
 {
     DC_TRACE(env);
     void *lib;
     bool get_func_err;
-
+    
     lib = open_lib(lib_name, RTLD_LAZY);
     if (lib == NULL)
     {
         (void) fprintf(stderr, "Fatal: could open API library %s: %s\n", lib_name, strerror(errno));
         return lib;
     }
-
+    
     api->initialize_server = get_func(lib, API_INIT);
     if (api->initialize_server == NULL)
     {
@@ -306,12 +335,13 @@ static void * get_api(struct api_functions * api, const char * lib_name, const s
         (void) fprintf(stderr, "Fatal: could not load API function %s: %s\n", API_CLOSE, strerror(errno));
         get_func_err = true;
     }
-
-    if (get_func_err) {
+    
+    if (get_func_err)
+    {
         close_lib(lib);
         return NULL;
     }
-
+    
     return lib;
 }
 
