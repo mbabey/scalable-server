@@ -1,9 +1,7 @@
 #include "../include/objects.h"
 #include "../include/setup.h"
 
-
-
-struct state_object *setup_state(struct memory_manager *mm)
+struct state_object *setup_state(struct core_object *co)
 {
     struct state_object *so;
     
@@ -12,6 +10,8 @@ struct state_object *setup_state(struct memory_manager *mm)
     {
         return NULL;
     }
+    
+    so->
     
     return so;
 }

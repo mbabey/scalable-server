@@ -8,7 +8,7 @@ int initialize_server(struct core_object *co)
 {
     printf("INIT ONE-TO-ONE SERVER\n");
     
-    co->so = setup_state(co->mm);
+    co->so = setup_state(co);
     
     
     

@@ -1,6 +1,7 @@
 #ifndef SCALABLE_SERVER_POLL_OBJECTS_H
 #define SCALABLE_SERVER_POLL_OBJECTS_H
 
+#include "../../core/include/objects.h"
 #include <netinet/in.h>
 
 #define MAX_CONNECTIONS 5
