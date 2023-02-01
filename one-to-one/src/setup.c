@@ -13,10 +13,6 @@ struct state_object *setup_state(struct memory_manager *mm)
         return NULL;
     }
     
-    so->listen_addr = (struct sockaddr_in *) Mmm_calloc(1, sizeof(struct sockaddr_in), mm);
-    
-    
-    
     return so;
 }
 
