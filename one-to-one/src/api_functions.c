@@ -8,7 +8,11 @@ int initialize_server(struct core_object *co)
 {
     printf("INIT ONE-TO-ONE SERVER\n");
     
-    co->so = (struct state_object *) mm_calloc(1, sizeof (struct state_object));
+    co->so = (struct state_object *) Mmm_calloc(1, sizeof (struct state_object), co->mm);
+    if (co->so == NULL)
+    {
+        return -1;
+    }
     
     
     
