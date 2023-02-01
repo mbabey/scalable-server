@@ -1,6 +1,7 @@
 #ifndef SCALABLE_SERVER_OBJECTS_H
 #define SCALABLE_SERVER_OBJECTS_H
 
+#include <netinet/in.h>
 #include <stdio.h>
 
 /**
@@ -17,6 +18,7 @@ struct core_object {
     struct dc_error *err;
     struct memory_manager *mm;
     FILE *log_file;
+    struct sockaddr_in *listen_addr;
     struct state_object *so;
 };
 

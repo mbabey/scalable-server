@@ -2,6 +2,8 @@
 #define SCALABLE_SERVER_UTIL_H
 
 #include <dc_c/dc_stdio.h>
+#include <mem_manager/manager.h>
+#include <sys/types.h>
 
 /**
  * open_file
@@ -13,6 +15,18 @@
  * @return The file. NULL and set errno on failure.
  */
 FILE *open_file(const char * file_name, const char * mode);
+
+/**
+ * assemble_listen_addr
+ * <p>
+ * Assemble a the server's listen addr. Allocate memory and fill fields.
+ * </p>
+ * @param mm the memory manager object
+ * @param port_num the port number
+ * @param ip_addr the IP address
+ * @return the sockaddr_in object with the server listen addr. NULL and set errno on failure.
+ */
+struct sockaddr_in *assemble_listen_addr(struct memory_manager *mm, in_port_t port_num, const char *ip_addr);
 
 /**
  * open_lib

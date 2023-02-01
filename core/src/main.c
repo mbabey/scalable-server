@@ -86,7 +86,8 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
  * @param co the core object
  * @return 0 on success. On failure, -1 and set errno.
  */
-int setup_core_object(struct core_object *co, const struct dc_env *env, struct dc_error *err);
+int setup_core_object(struct core_object *co, const struct dc_env *env, struct dc_error *err, const in_port_t port_num,
+                      const char *ip_addr);
 
 /**
  * destroy_core_object
@@ -231,6 +232,8 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
     DC_TRACE(env);
     struct application_settings *app_settings;
     const char                  *lib_name;
+    in_port_t                   port_num;
+    const char                  *ip_addr;
     
     struct core_object co;
     int                ret_val;
@@ -238,9 +241,11 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
     
     app_settings = (struct application_settings *) settings;
     lib_name     = dc_setting_string_get(env, app_settings->library);
+    port_num     = dc_setting_in_port_t_get(env, app_settings->port_num);
+    ip_addr      = dc_setting_string_get(env, app_settings->ip_addr);
     
     // create core object
-    ret_val = setup_core_object(&co, env, err);
+    ret_val = setup_core_object(&co, env, err, port_num, ip_addr);
     if (ret_val == 0)
     {
         struct api_functions api;
@@ -272,7 +277,8 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
     return ret_val;
 }
 
-int setup_core_object(struct core_object *co, const struct dc_env *env, struct dc_error *err)
+int setup_core_object(struct core_object *co, const struct dc_env *env, struct dc_error *err, const in_port_t port_num,
+                      const char *ip_addr)
 {
     DC_TRACE(env);
     memset(co, 0, sizeof(struct core_object));
@@ -294,6 +300,8 @@ int setup_core_object(struct core_object *co, const struct dc_env *env, struct d
         (void) fprintf(stderr, "Fatal: could not open %s: %s\n", LOG_FILE_NAME, strerror(errno));
         return -1;
     }
+    
+    co->listen_addr = assemble_listen_addr(port_num, ip_addr);
     
     return 0;
 }

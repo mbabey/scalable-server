@@ -1,5 +1,7 @@
-#include <dlfcn.h>
 #include "util.h"
+
+#include <dlfcn.h>
+
 
 FILE *open_file(const char * file_name, const char * mode)
 {
@@ -9,6 +11,13 @@ FILE *open_file(const char * file_name, const char * mode)
     // If an error occurs will return null.
     
     return file;
+}
+
+struct sockaddr_in *assemble_listen_addr(struct memory_manager *mm, const in_port_t port_num, const char *ip_addr)
+{
+
+
+
 }
 
 void *open_lib(const char *lib_name, int mode)
