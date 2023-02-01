@@ -1,8 +1,9 @@
 #include "util.h"
 
+#include <arpa/inet.h>
 #include <dlfcn.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
+#include <string.h>
 
 FILE *open_file(const char *file_name, const char *mode)
 {
@@ -14,35 +15,36 @@ FILE *open_file(const char *file_name, const char *mode)
     return file;
 }
 
-struct sockaddr_in *assemble_listen_addr(struct memory_manager *mm, const in_port_t port_num, const char *ip_addr)
+int assemble_listen_addr(struct sockaddr_in *listen_addr, const in_port_t port_num, const char *ip_addr,
+                         struct memory_manager *mm)
 {
-    struct sockaddr_in *listen_addr;
+    int ret_val;
     
-    listen_addr = (struct sockaddr_in *) Mmm_calloc(1, sizeof(struct sockaddr_in), mm);
+    memset(listen_addr, 0, sizeof(struct sockaddr_in));
     
-    if (listen_addr)
+    listen_addr->sin_port   = htonl(port_num);
+    listen_addr->sin_family = AF_INET;
+    switch (inet_pton(AF_INET, ip_addr, &listen_addr->sin_addr.s_addr))
     {
-        listen_addr->sin_port   = htonl(port_num);
-        listen_addr->sin_family = AF_INET;
-        switch (inet_pton(AF_INET, ip_addr, &listen_addr->sin_addr.s_addr))
+        case 1: // Valid
         {
-            case 1: // Valid
-            {
-                break;
-            }
-            case 0: // Not a valid IP address
-            {
-                fprintf(stderr, "%s is not a valid IP address\n", ip_addr);
-                return NULL;
-            }
-            default:
-            {
-                return NULL;
-            }
+            ret_val = 0;
+            break;
+        }
+        case 0: // Not a valid IP address
+        {
+            fprintf(stderr, "%s is not a valid IP address\n", ip_addr);
+            ret_val = -1;
+            break;
+        }
+        default:
+        {
+            ret_val = -1;
+            break;
         }
     }
     
-    return listen_addr;
+    return ret_val;
 }
 
 void *open_lib(const char *lib_name, int mode)

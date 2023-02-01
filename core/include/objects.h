@@ -18,7 +18,7 @@ struct core_object {
     struct dc_error *err;
     struct memory_manager *mm;
     FILE *log_file;
-    struct sockaddr_in *listen_addr;
+    struct sockaddr_in listen_addr;
     struct state_object *so;
 };
 

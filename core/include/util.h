@@ -3,6 +3,7 @@
 
 #include <dc_c/dc_stdio.h>
 #include <mem_manager/manager.h>
+#include <netinet/in.h>
 #include <sys/types.h>
 
 /**
@@ -19,14 +20,16 @@ FILE *open_file(const char * file_name, const char * mode);
 /**
  * assemble_listen_addr
  * <p>
- * Assemble a the server's listen addr. Allocate memory and fill fields.
+ * Assemble a the server's listen addr. Zero memory and fill fields.
  * </p>
- * @param mm the memory manager object
+ * @param listen_addr the address to assemble
  * @param port_num the port number
  * @param ip_addr the IP address
- * @return the sockaddr_in object with the server listen addr. NULL and set errno on failure.
+ * @param mm the memory manager object
+ * @return 0 on success, -1 and set errno on failure.
  */
-struct sockaddr_in *assemble_listen_addr(struct memory_manager *mm, in_port_t port_num, const char *ip_addr);
+int assemble_listen_addr(struct sockaddr_in *listen_addr, in_port_t port_num, const char *ip_addr,
+                         struct memory_manager *mm);
 
 /**
  * open_lib
