@@ -2,7 +2,6 @@
 #define SCALABLE_SERVER_PROCESS_OBJECTS_H
 
 #include "../../core/include/objects.h"
-#include <netinet/in.h>
 #include <semaphore.h>
 
 #define NUM_CHILD_PROCESSES 4 // Should be a power of 2 for magic indexing purposes.
@@ -28,7 +27,6 @@ struct child_struct
 struct parent_struct
 {
     int listen_fd;
-    struct sockaddr_in *listen_addr;
 };
 
 #endif //SCALABLE_SERVER_PROCESS_OBJECTS_H

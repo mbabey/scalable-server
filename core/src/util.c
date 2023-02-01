@@ -35,7 +35,7 @@ int assemble_listen_addr(struct sockaddr_in *listen_addr, const in_port_t port_n
             ret_val = -1;
             break;
         }
-        default:
+        default: // Some other error
         {
             ret_val = -1;
             break;
