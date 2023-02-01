@@ -1,5 +1,5 @@
-#ifndef SCALABLE_SERVER_OBJECTS_H
-#define SCALABLE_SERVER_OBJECTS_H
+#ifndef SCALABLE_SERVER_POLL_OBJECTS_H
+#define SCALABLE_SERVER_POLL_OBJECTS_H
 
 #include <netinet/in.h>
 
@@ -12,4 +12,4 @@ struct state_object {
     struct sockaddr_in *client_addr[MAX_CONNECTIONS];
 };
 
-#endif //SCALABLE_SERVER_OBJECTS_H
+#endif //SCALABLE_SERVER_POLL_OBJECTS_H

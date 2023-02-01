@@ -1,5 +1,5 @@
-#ifndef SCALABLE_SERVER_OBJECTS_H
-#define SCALABLE_SERVER_OBJECTS_H
+#ifndef SCALABLE_SERVER_PROCESS_OBJECTS_H
+#define SCALABLE_SERVER_PROCESS_OBJECTS_H
 
 #include <netinet/in.h>
 #include <semaphore.h>
@@ -30,4 +30,4 @@ struct parent_struct
     struct sockaddr_in *listen_addr;
 };
 
-#endif //SCALABLE_SERVER_OBJECTS_H
+#endif //SCALABLE_SERVER_PROCESS_OBJECTS_H
