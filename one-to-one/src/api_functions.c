@@ -1,5 +1,5 @@
 #include "../../api_functions.h"
-#include "../include/setup.h"
+#include "../include/one_to_one.h"
 
 #include <stdio.h>
 
@@ -13,7 +13,7 @@ int initialize_server(struct core_object *co)
         return -1;
     }
     
-    if (open_server_for_listen(co) == -1)
+    if (open_server_for_listen(co->so, &co->listen_addr) == -1)
     {
         return -1;
     }
@@ -31,6 +31,9 @@ int run_server(struct core_object *co)
 int close_server(struct core_object *co)
 {
     printf("CLOSE ONE-TO-ONE SERVER\n");
-
+    
+    destroy_state(co->so);
+    
+    
     return 0;
 }

@@ -1,5 +1,5 @@
-#ifndef ONE_TO_ONE_SETUP_H
-#define ONE_TO_ONE_SETUP_H
+#ifndef ONE_TO_ONE_ONE_TO_ONE_H
+#define ONE_TO_ONE_ONE_TO_ONE_H
 
 #include <mem_manager/manager.h>
 
@@ -27,6 +27,16 @@ struct state_object *setup_state(struct memory_manager *mm);
  * @param co the core object
  * @return 0 on success, -1 and set errno on failure
  */
-int open_server_for_listen(struct core_object *co);
+int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_addr);
 
-#endif //ONE_TO_ONE_SETUP_H
+/**
+ * destroy_state
+ * <p>
+ * Close all connections and all open sockets.
+ * </p>
+ * @param so the state object
+ * @return 0 on success, -1 and set errno on failure
+ */
+int destroy_state(struct state_object *so);
+
+#endif //ONE_TO_ONE_ONE_TO_ONE_H

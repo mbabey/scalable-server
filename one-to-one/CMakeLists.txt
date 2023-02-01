@@ -11,11 +11,11 @@ set(SOURCE_DIR src)
 set(INCLUDE_DIR include)
 set(SOURCE_LIST
         ${SOURCE_DIR}/api_functions.c
-        ${SOURCE_DIR}/setup.c
+        ${SOURCE_DIR}/one_to_one.c
         )
 set(HEADER_LIST
         ${INCLUDE_DIR}/objects.h
-        ${INCLUDE_DIR}/setup.h
+        ${INCLUDE_DIR}/one_to_one.h
         ../api_functions.h
         )
 
