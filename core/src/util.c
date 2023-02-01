@@ -26,20 +26,18 @@ struct sockaddr_in *assemble_listen_addr(struct memory_manager *mm, const in_por
         listen_addr->sin_family = AF_INET;
         switch (inet_pton(AF_INET, ip_addr, &listen_addr->sin_addr.s_addr))
         {
-            case 1:
+            case 1: // Valid
             {
-                // Valid
                 break;
             }
-            case 0:
+            case 0: // Not a valid IP address
             {
-                // Not a valid IP address
-                break;
+                fprintf(stderr, "%s is not a valid IP address\n", ip_addr);
+                return NULL;
             }
             default:
             {
-                // Error
-                break;
+                return NULL;
             }
         }
     }
