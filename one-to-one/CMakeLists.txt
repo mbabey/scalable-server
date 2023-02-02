@@ -13,11 +13,14 @@ set(SOURCE_LIST
         ${SOURCE_DIR}/api_functions.c
         ${SOURCE_DIR}/one_to_one.c
         ${SOURCE_DIR}/test_main.c
+        ../core/src/util.c
         )
 set(HEADER_LIST
         ${INCLUDE_DIR}/objects.h
         ${INCLUDE_DIR}/one_to_one.h
         ../api_functions.h
+        #====== INCLUDES FOR DUMMY MAIN ======#
+        ../core/include/util.h
         )
 
 set(SANITIZE TRUE)
@@ -168,6 +171,24 @@ install(FILES ${HEADER_LIST} DESTINATION include/one-to-one)
 
 add_dependencies(one-to-one doxygen)
 
+find_library(LIBDC_ERROR dc_error REQUIRED)
+find_library(LIBDC_ENV dc_env REQUIRED)
+find_library(LIBDC_C dc_c REQUIRED)
+find_library(LIBDC_POSIX dc_posix REQUIRED)
+find_library(LIBDC_UNIX dc_unix REQUIRED)
+find_library(LIBDC_UTIL dc_util REQUIRED)
+find_library(LIBDC_FSM dc_fsm REQUIRED)
+find_library(LIB_CONFIG config REQUIRED)
+find_library(LIBDC_APPLICATION dc_application REQUIRED)
 find_library(MEM_MANAGER mem_manager REQUIRED)
 
+target_link_libraries(one-to-one PUBLIC ${LIBDC_ERROR})
+target_link_libraries(one-to-one PUBLIC ${LIBDC_ENV})
+target_link_libraries(one-to-one PUBLIC ${LIBDC_C})
+target_link_libraries(one-to-one PUBLIC ${LIBDC_POSIX})
+target_link_libraries(one-to-one PUBLIC ${LIBDC_UNIX})
+target_link_libraries(one-to-one PUBLIC ${LIBDC_UTIL})
+target_link_libraries(one-to-one PUBLIC ${LIBDC_FSM})
+target_link_libraries(one-to-one PUBLIC ${LIB_CONFIG})
+target_link_libraries(one-to-one PUBLIC ${LIBDC_APPLICATION})
 target_link_libraries(one-to-one PUBLIC ${MEM_MANAGER})
