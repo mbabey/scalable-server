@@ -153,13 +153,14 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
 {
     DC_TRACE(env);
     struct application_settings *app_settings;
+    struct core_object          co;
     const char                  *lib_name;
     in_port_t                   port_num;
     const char                  *ip_addr;
+    void                        *lib;
     
-    struct core_object co;
-    int                ret_val;
-    void               *lib;
+    int ret_val;
+    
     
     app_settings = (struct application_settings *) settings;
     lib_name     = dc_setting_string_get(env, app_settings->library);
@@ -168,35 +169,67 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
     
     // create core object
     ret_val = setup_core_object(&co, env, err, port_num, ip_addr);
-    if (ret_val == 0)
+    if (ret_val == -1)
     {
-        struct api_functions api;
-        lib = get_api(&api, lib_name, env);
-        if (lib == NULL)
+        return EXIT_FAILURE;
+    }
+    
+    struct api_functions api;
+    int next_state;
+    int run;
+    
+    run        = 1;
+    next_state = OPEN_LIBRARY;
+    while (run)
+    {
+        switch (next_state)
         {
-            ret_val = -1;
-        } else
-        {
-            // TODO: how do we want to handle return values here?
-            ret_val = api.initialize_server(&co);
-            // check error
-            
-            ret_val = api.run_server(&co);
-            // check error
-            
-            ret_val = api.close_server(&co);
-            // check error
-            
-            ret_val = close_lib(lib);
-            if (ret_val != 0)
+            case OPEN_LIBRARY:
+            {
+                lib = get_api(&api, lib_name, env);
+                next_state = (lib) ? INITIALIZE_SERVER : ERROR;
+            }
+            case INITIALIZE_SERVER:
+            {
+                next_state = api.initialize_server(&co);
+                break;
+            }
+            case RUN_SERVER:
+            {
+                next_state = api.run_server(&co);
+                break;
+            }
+            case CLOSE_SERVER:
+            {
+                next_state = api.close_server(&co);
+                break;
+            }
+            case CLOSE_LIBRARY:
+            {
+                next_state = close_lib(lib);
+                if (next_state != 0)
+                {
+                    // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
+                    (void) fprintf(stderr, "Fatal: could not close lib_name %s: %s\n", lib_name, strerror(errno));
+                }
+            }
+            case ERROR:
             {
                 // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
-                (void) fprintf(stderr, "Fatal: could not close lib_name %s: %s\n", lib_name, strerror(errno));
+                (void) fprintf(stderr, "Fatal: error during server runtime: %s\n", strerror(errno));
+                run = 0;
+                break;
+            }
+            default:
+            {
+                // Should not get here.
+                run = 0;
             }
         }
-        destroy_core_object(&co);
     }
-    return ret_val;
+
+    destroy_core_object(&co);
+    return next_state;
 }
 
 static int destroy_settings(const struct dc_env *env, struct dc_error *err, struct dc_application_settings **psettings)

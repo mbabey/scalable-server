@@ -25,15 +25,17 @@ struct api_functions
 };
 
 /**
- * States
+ * Server_States
  * <p>
- * Enumerated states. As return values, indicate the next state the program should take.
+ * Enumerated states for the server. As return values, indicate the next state the server should take.
  * </p>
  */
-enum States {
-    INITIALIZE_SERVER = 0,
+enum Server_States {
+    OPEN_LIBRARY = 0,
+    INITIALIZE_SERVER,
     RUN_SERVER,
     CLOSE_SERVER,
+    CLOSE_LIBRARY,
     ERROR,
     EXIT
 };
