@@ -25,6 +25,20 @@ struct api_functions
 };
 
 /**
+ * States
+ * <p>
+ * Enumerated states. As return values, indicate the next state the program should take.
+ * </p>
+ */
+enum States {
+    INITIALIZE_SERVER = 0,
+    RUN_SERVER,
+    CLOSE_SERVER,
+    ERROR,
+    EXIT
+};
+
+/**
  * trace_reporter
  * <p>
  * formatting function for trace reporting.

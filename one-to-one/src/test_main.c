@@ -24,20 +24,21 @@ int main(void)
     ret_val = setup_core_object(&co, env, err, DEFAULT_PORT_BUT_A_NUMBER, DEFAULT_IP);
     if (ret_val == 0)
     {
-        
-        // TODO: how do we want to handle return values here?
         ret_val = initialize_server(&co);
-        // check error
         
         ret_val = run_server(&co);
-        // check error
         
         ret_val = close_server(&co);
-        // check error
         
         destroy_core_object(&co);
     }
     
     return ret_val;
+}
+
+if (ret_val != 0)
+{
+// NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
+(void) fprintf(stderr, "Fatal: error during server runtime: %s\n", strerror(errno));
 }
 
