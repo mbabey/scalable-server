@@ -4,6 +4,46 @@
 #include <dlfcn.h>
 #include <string.h>
 
+#define LOG_FILE_NAME "logs.csv"
+#define LOG_OPEN_MODE "w" // Mode is set to truncate for independent results from each experiment.
+
+#define API_INIT "initialize_server"
+#define API_RUN "run_server"
+#define API_CLOSE "close_server"
+
+int setup_core_object(struct core_object *co, const struct dc_env *env, struct dc_error *err, const in_port_t port_num,
+                      const char *ip_addr)
+{
+    DC_TRACE(env);
+    memset(co, 0, sizeof(struct core_object));
+    
+    co->env = env;
+    co->err = err;
+    co->mm  = init_mem_manager();
+    if (!co->mm)
+    {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
+        (void) fprintf(stderr, "Fatal: could not initialize memory manager: %s\n", strerror(errno));
+        return -1;
+    }
+    co->log_file = open_file(LOG_FILE_NAME, LOG_OPEN_MODE);
+    if (!co->log_file)
+    {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
+        (void) fprintf(stderr, "Fatal: could not open %s: %s\n", LOG_FILE_NAME, strerror(errno));
+        return -1;
+    }
+    
+    if (assemble_listen_addr(&co->listen_addr, port_num, ip_addr) == -1)
+    {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
+        (void) fprintf(stderr, "Fatal: could not assign server address: %s\n", strerror(errno));
+        return -1;
+    }
+    
+    return 0;
+}
+
 FILE *open_file(const char *file_name, const char *mode)
 {
     FILE *file;
@@ -61,6 +101,50 @@ int close_lib(void *lib)
     // If an error occurs will return null.
 }
 
+void *get_api(struct api_functions *api, const char *lib_name, const struct dc_env *env)
+{
+    DC_TRACE(env);
+    void *lib;
+    bool get_func_err;
+    
+    // NOLINTBEGIN(concurrency-mt-unsafe) : No threads here
+    lib = open_lib(lib_name, RTLD_LAZY);
+    if (lib == NULL)
+    {
+        (void) fprintf(stderr, "Fatal: could not open API library %s: %s\n", lib_name, strerror(errno));
+        return lib;
+    }
+    
+    get_func_err = false;
+    api->initialize_server = (int (*)(struct core_object *)) get_func(lib, API_INIT);
+    if (api->initialize_server == NULL)
+    {
+        (void) fprintf(stderr, "Fatal: could not load API function %s: %s\n", API_INIT, strerror(errno));
+        get_func_err = true;
+    }
+    api->run_server = (int (*)(struct core_object *)) get_func(lib, API_RUN);
+    if (api->run_server == NULL)
+    {
+        (void) fprintf(stderr, "Fatal: could not load API function %s: %s\n", API_RUN, strerror(errno));
+        get_func_err = true;
+    }
+    api->close_server = (int (*)(struct core_object *)) get_func(lib, API_CLOSE);
+    if (api->close_server == NULL)
+    {
+        (void) fprintf(stderr, "Fatal: could not load API function %s: %s\n", API_CLOSE, strerror(errno));
+        get_func_err = true;
+    }
+    // NOLINTEND(concurrency-mt-unsafe)
+    
+    if (get_func_err)
+    {
+        close_lib(lib);
+        return NULL;
+    }
+    
+    return lib;
+}
+
 void *get_func(void *lib, const char *func_name)
 {
     void *func;
@@ -69,4 +153,13 @@ void *get_func(void *lib, const char *func_name)
     // If an error occurs will return null.
     
     return func;
+}
+
+void destroy_core_object(struct core_object *co)
+{
+    if (co->log_file)
+    {
+        (void) fclose(co->log_file);
+    }
+    free_mem_manager(co->mm);
 }

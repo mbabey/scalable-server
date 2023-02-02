@@ -12,6 +12,7 @@ set(INCLUDE_DIR include)
 set(SOURCE_LIST
         ${SOURCE_DIR}/api_functions.c
         ${SOURCE_DIR}/one_to_one.c
+        ${SOURCE_DIR}/test_main.c
         )
 set(HEADER_LIST
         ${INCLUDE_DIR}/objects.h
