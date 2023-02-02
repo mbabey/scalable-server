@@ -188,6 +188,7 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
             {
                 lib = get_api(&api, lib_name, env);
                 next_state = (lib) ? INITIALIZE_SERVER : ERROR;
+                break;
             }
             case INITIALIZE_SERVER:
             {
@@ -206,17 +207,19 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
             }
             case CLOSE_LIBRARY:
             {
-                next_state = close_lib(lib);
-                if (next_state != 0)
-                {
-                    // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
-                    (void) fprintf(stderr, "Fatal: could not close lib_name %s: %s\n", lib_name, strerror(errno));
-                }
+                next_state = close_lib(lib, lib_name);
+                next_state = (next_state == 0) ? EXIT : ERROR;
+                break;
             }
             case ERROR:
             {
                 // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
                 (void) fprintf(stderr, "Fatal: error during server runtime: %s\n", strerror(errno));
+                run = 0;
+                break;
+            }
+            case EXIT:
+            {
                 run = 0;
                 break;
             }

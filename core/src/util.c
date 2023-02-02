@@ -148,9 +148,18 @@ void *open_lib(const char *lib_name, int mode)
     return lib;
 }
 
-int close_lib(void *lib)
+int close_lib(void *lib, const char *lib_name)
 {
-    return dlclose(lib);
+    int status;
+    
+    status = dlclose(lib);
+    if (status == -1)
+    {
+        // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
+        (void) fprintf(stderr, "Fatal: could not close lib_name %s: %s\n", lib_name, strerror(errno));
+    }
+    
+    return status;
     // If an error occurs will return -1.
 }
 
@@ -191,7 +200,7 @@ void *get_api(struct api_functions *api, const char *lib_name, const struct dc_e
     
     if (get_func_err)
     {
-        close_lib(lib);
+        close_lib(lib, NULL);
         return NULL;
     }
     

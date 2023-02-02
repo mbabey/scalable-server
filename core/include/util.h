@@ -88,7 +88,7 @@ void *get_api(struct api_functions *api, const char *lib_name, const struct dc_e
  * @param lib the library to close.
  * @return 0 on success. On failure, -1 and set errno.
  */
-int close_lib(void *lib);
+int close_lib(void *lib, const char *lib_name);
 
 /**
  * destroy_core_object
