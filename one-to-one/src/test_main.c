@@ -24,30 +24,17 @@ int main(void)
     ret_val = setup_core_object(&co, env, err, DEFAULT_PORT_BUT_A_NUMBER, DEFAULT_IP);
     if (ret_val == 0)
     {
-        struct api_functions api;
-        lib = get_api(&api, DEFAULT_LIBRARY, env);
-        if (lib == NULL)
-        {
-            ret_val = -1;
-        } else
-        {
-            // TODO: how do we want to handle return values here?
-            ret_val = api.initialize_server(&co);
-            // check error
-            
-            ret_val = api.run_server(&co);
-            // check error
-            
-            ret_val = api.close_server(&co);
-            // check error
-            
-            ret_val = close_lib(lib);
-            if (ret_val != 0)
-            {
-                // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
-                (void) fprintf(stderr, "Fatal: could not close lib_name %s: %s\n", DEFAULT_LIBRARY, strerror(errno));
-            }
-        }
+        
+        // TODO: how do we want to handle return values here?
+        ret_val = initialize_server(&co);
+        // check error
+        
+        ret_val = run_server(&co);
+        // check error
+        
+        ret_val = close_server(&co);
+        // check error
+        
         destroy_core_object(&co);
     }
     

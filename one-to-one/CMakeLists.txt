@@ -13,13 +13,14 @@ set(SOURCE_LIST
         ${SOURCE_DIR}/api_functions.c
         ${SOURCE_DIR}/one_to_one.c
         ${SOURCE_DIR}/test_main.c
+        #=vvvv= SOURCE FOR DUMMY MAIN =vvvv=#
         ../core/src/util.c
         )
 set(HEADER_LIST
         ${INCLUDE_DIR}/objects.h
         ${INCLUDE_DIR}/one_to_one.h
         ../api_functions.h
-        #====== INCLUDES FOR DUMMY MAIN ======#
+        #=vvvv= INCLUDES FOR DUMMY MAIN =vvvv=#
         ../core/include/util.h
         )
 
@@ -141,33 +142,41 @@ set(CLANG_TIDY_CHECKS "${CLANG_TIDY_CHECKS},-android-cloexec-accept")
 set(CMAKE_C_CLANG_TIDY clang-tidy -checks=${CLANG_TIDY_CHECKS};--quiet)
 
 #========= vvv COMPILE AS LIBRARY vvv =========#
+#
+#add_library(one-to-one SHARED ${SOURCE_LIST} ${HEADER_LIST})
+#target_include_directories(one-to-one PRIVATE include/one-to-one)
+#target_include_directories(one-to-one PRIVATE /usr/local/include)
+#target_link_directories(one-to-one PRIVATE /usr/local/lib)
+#
+#if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+#    target_include_directories(one-to-one PRIVATE /usr/include)
+#endif ()
+#
+#set_target_properties(one-to-one PROPERTIES
+#        VERSION ${PROJECT_VERSION}
+#        SOVERSION ${PROJECT_VERSION_MAJOR})
+#
+#get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
+#
+#if ("${LIB64}" STREQUAL "TRUE")
+#    set(LIBSUFFIX 64)
+#else()
+#    set(LIBSUFFIX "")
+#endif()
+#
+#set(INSTALL_LIB_DIR lib${LIBSUFFIX} CACHE PATH "Installation directory for libraries")
+#mark_as_advanced(INSTALL_LIB_DIR)
+#
+#install(TARGETS one-to-one LIBRARY DESTINATION ${INSTALL_LIB_DIR})
+#install(FILES ${HEADER_LIST} DESTINATION include/one-to-one)
 
-add_library(one-to-one SHARED ${SOURCE_LIST} ${HEADER_LIST})
-target_include_directories(one-to-one PRIVATE include/one-to-one)
+#========= ^^^ COMPILE AS LIBRARY ^^^ =========#
+#========= vvv COMPILE AS EXECUTABLE vvv =========#
+
+add_executable(one-to-one ${SOURCE_LIST})
 target_include_directories(one-to-one PRIVATE /usr/local/include)
-target_link_directories(one-to-one PRIVATE /usr/local/lib)
 
-if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    target_include_directories(one-to-one PRIVATE /usr/include)
-endif ()
-
-set_target_properties(one-to-one PROPERTIES
-        VERSION ${PROJECT_VERSION}
-        SOVERSION ${PROJECT_VERSION_MAJOR})
-
-get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
-
-if ("${LIB64}" STREQUAL "TRUE")
-    set(LIBSUFFIX 64)
-else()
-    set(LIBSUFFIX "")
-endif()
-
-set(INSTALL_LIB_DIR lib${LIBSUFFIX} CACHE PATH "Installation directory for libraries")
-mark_as_advanced(INSTALL_LIB_DIR)
-
-install(TARGETS one-to-one LIBRARY DESTINATION ${INSTALL_LIB_DIR})
-install(FILES ${HEADER_LIST} DESTINATION include/one-to-one)
+#========= ^^^ COMPILE AS EXECUTABLE ^^^ =========#
 
 add_dependencies(one-to-one doxygen)
 

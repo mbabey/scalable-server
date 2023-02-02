@@ -24,7 +24,8 @@ struct state_object *setup_state(struct memory_manager *mm);
  * Create a socket, bind, and begin listening for connections. Fill necessary fields in the
  * core object.
  * </p>
- * @param co the core object
+ * @param so the state object
+ * @param listen_addr the address on which to listen
  * @return 0 on success, -1 and set errno on failure
  */
 int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_addr);
