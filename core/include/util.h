@@ -21,6 +21,18 @@ struct api_functions
 };
 
 /**
+ * trace_reporter
+ * <p>
+ * formatting function for trace reporting.
+ * </p>
+ * @param env pointer to a dc_env struct
+ * @param file_name name of the file the trace occurs in.
+ * @param function_name name of the function the trace occurs in.
+ * @param line_number the line the trace occurs in.
+ */
+void trace_reporter(const struct dc_env *env, const char *file_name, const char *function_name, size_t line_number);
+
+/**
  * setup_core_object
  * <p>
  * Zero the core_object. Setup other objects and attach them to the core_object.

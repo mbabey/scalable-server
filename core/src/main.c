@@ -62,19 +62,6 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
  */
 static int destroy_settings(const struct dc_env *env, struct dc_error *err, struct dc_application_settings **psettings);
 
-/**
- * trace_reporter
- * <p>
- * formatting function for trace reporting.
- * </p>
- * @param env pointer to a dc_env struct
- * @param file_name name of the file the trace occurs in.
- * @param function_name name of the function the trace occurs in.
- * @param line_number the line the trace occurs in.
- */
-static void
-trace_reporter(const struct dc_env *env, const char *file_name, const char *function_name, size_t line_number);
-
 int main(int argc, char *argv[])
 {
     int                        ret_val;
@@ -232,10 +219,4 @@ static int destroy_settings(const struct dc_env *env, struct dc_error *err, stru
     }
     
     return 0;
-}
-
-static void
-trace_reporter(const struct dc_env *env, const char *file_name, const char *function_name, size_t line_number)
-{
-    (void) fprintf(stdout, "TRACE: %s : %s : @ %zu\n", file_name, function_name, line_number);
 }

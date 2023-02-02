@@ -58,6 +58,11 @@ void *open_lib(const char *lib_name, int mode);
  */
 void *get_func(void *lib, const char *func_name);
 
+void trace_reporter(const struct dc_env *env, const char *file_name, const char *function_name, size_t line_number)
+{
+    (void) fprintf(stdout, "TRACE: %s : %s : @ %zu\n", file_name, function_name, line_number);
+}
+
 int setup_core_object(struct core_object *co, const struct dc_env *env, struct dc_error *err, const in_port_t port_num,
                       const char *ip_addr)
 {
