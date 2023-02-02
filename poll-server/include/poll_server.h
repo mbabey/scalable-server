@@ -1,5 +1,5 @@
-#ifndef ONE_TO_ONE_ONE_TO_ONE_H
-#define ONE_TO_ONE_ONE_TO_ONE_H
+#ifndef SCALABLE_SERVER_POLL_SERVER_H
+#define SCALABLE_SERVER_POLL_SERVER_H
 
 #include <mem_manager/manager.h>
 #include <netinet/in.h>
@@ -41,4 +41,4 @@ int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_a
  */
 int destroy_state(struct state_object *so);
 
-#endif //ONE_TO_ONE_ONE_TO_ONE_H
+#endif //SCALABLE_SERVER_POLL_SERVER_H
