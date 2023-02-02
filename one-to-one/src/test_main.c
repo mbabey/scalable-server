@@ -26,6 +26,7 @@ int main(void)
     {
         return EXIT_FAILURE;
     }
+    
     run = 1;
     while (run)
     {
@@ -53,9 +54,13 @@ int main(void)
                 run = 0;
                 break;
             }
-            default:
+            case EXIT:
             {
-                // Should not get here.
+                run = 0;
+                break;
+            }
+            default: // Should not get here.
+            {
                 run = 0;
             }
         }
@@ -65,11 +70,3 @@ int main(void)
     
     return next_state;
 }
-
-if (ret_val != 0)
-{
-
-
-);
-}
-

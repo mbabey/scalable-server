@@ -12,8 +12,8 @@ set(INCLUDE_DIR include)
 set(SOURCE_LIST
         ${SOURCE_DIR}/api_functions.c
         ${SOURCE_DIR}/one_to_one.c
-        ${SOURCE_DIR}/test_main.c
         #=vvvv= SOURCE FOR DUMMY MAIN =vvvv=#
+        ${SOURCE_DIR}/test_main.c
         ../core/src/util.c
         )
 set(HEADER_LIST
