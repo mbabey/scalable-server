@@ -118,7 +118,7 @@ int assemble_listen_addr(struct sockaddr_in *listen_addr, const in_port_t port_n
         }
         case 0: // Not a valid IP address
         {
-            fprintf(stderr, "%s is not a valid IP address\n", ip_addr);
+            (void) fprintf(stderr, "%s is not a valid IP address\n", ip_addr);
             ret_val = -1;
             break;
         }

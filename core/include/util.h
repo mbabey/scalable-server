@@ -27,6 +27,10 @@ struct api_functions
  * Open the log file and attach it to the core object.
  * </p>
  * @param co the core object
+ * @param env the environment object
+ * @param err the error object
+ * @param port_num the port number to listen on
+ * @param ip_addr the ip address to listen on
  * @return 0 on success. On failure, -1 and set errno.
  */
 int setup_core_object(struct core_object *co, const struct dc_env *env, struct dc_error *err, in_port_t port_num,
@@ -37,7 +41,7 @@ int setup_core_object(struct core_object *co, const struct dc_env *env, struct d
  * <p>
  * Open a given library and attempt to load API functions into the api_functions struct.
  * </p>
- * @param api_functions struct containing API functions.
+ * @param api struct containing API functions.
  * @param lib_name name of the library.
  * @param env pointer to a dc_env struct.
  * @return The opened library. NULL and set errno on failure.
@@ -52,7 +56,7 @@ void *get_api(struct api_functions *api, const char *lib_name, const struct dc_e
  * @param lib the library to close.
  * @return 0 on success. On failure, -1 and set errno.
  */
-int close_lib(void * lib);
+int close_lib(void *lib);
 
 /**
  * destroy_core_object
