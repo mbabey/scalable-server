@@ -1,14 +1,10 @@
 #include "util.h"
 
-#include <dc_application/application.h>
 #include <dc_application/options.h>
 #include <dc_c/dc_stdlib.h>
 #include <dc_c/dc_string.h>
-#include <dc_env/env.h>
-#include <dc_error/error.h>
 #include <mem_manager/manager.h>
 
-#include <dlfcn.h>
 #include <getopt.h>
 #include <string.h>
 
