@@ -8,10 +8,6 @@
 #include <getopt.h>
 #include <string.h>
 
-#define DEFAULT_LIBRARY "../../one-to-one/cmake-build-debug/libone-to-one.dylib" // TODO: relative path should be changed to absolute.
-#define DEFAULT_PORT "5000"
-#define DEFAULT_IP "123.123.123.123" // TODO: will need to get the IP address by default
-
 /**
  * application_settings
  * <p>
