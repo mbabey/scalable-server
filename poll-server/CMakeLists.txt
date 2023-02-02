@@ -164,3 +164,7 @@ install(TARGETS poll-server LIBRARY DESTINATION ${INSTALL_LIB_DIR})
 install(FILES ${HEADER_LIST} DESTINATION include/poll-server)
 
 add_dependencies(poll-server doxygen)
+
+find_library(MEM_MANAGER mem_manager REQUIRED)
+
+target_link_libraries(scalable_server PUBLIC ${MEM_MANAGER})

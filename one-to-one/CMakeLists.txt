@@ -166,3 +166,7 @@ install(TARGETS one-to-one LIBRARY DESTINATION ${INSTALL_LIB_DIR})
 install(FILES ${HEADER_LIST} DESTINATION include/one-to-one)
 
 add_dependencies(one-to-one doxygen)
+
+find_library(MEM_MANAGER mem_manager REQUIRED)
+
+target_link_libraries(scalable_server PUBLIC ${MEM_MANAGER})
