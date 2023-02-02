@@ -1,4 +1,5 @@
 #include "../../api_functions.h"
+#include "../include/poll_server.h"
 
 int initialize_server(struct core_object *co)
 {
@@ -25,5 +26,5 @@ int run_server(struct core_object *co)
 
 int close_server(struct core_object *co)
 {
-    return EXIT_SERVER;
+    return EXIT;
 }

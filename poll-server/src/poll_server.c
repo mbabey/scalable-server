@@ -71,7 +71,7 @@ int destroy_state(struct state_object *so)
         }
     }
     
-    status = close(so->client_fd); // TODO(Max): run this for each socket
+    status = close(*so->client_fd); // TODO(Max): run this for each socket
     if (status == -1)
     {
         switch (errno)

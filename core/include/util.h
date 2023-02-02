@@ -70,6 +70,7 @@ void *get_api(struct api_functions *api, const char *lib_name, const struct dc_e
  * Close a dynamic library.
  * </p>
  * @param lib the library to close.
+ * @param lib_name the name of the library to close
  * @return 0 on success. On failure, -1 and set errno.
  */
 int close_lib(void *lib, const char *lib_name);
