@@ -169,4 +169,4 @@ add_dependencies(one-to-one doxygen)
 
 find_library(MEM_MANAGER mem_manager REQUIRED)
 
-target_link_libraries(scalable_server PUBLIC ${MEM_MANAGER})
+target_link_libraries(one-to-one PUBLIC ${MEM_MANAGER})

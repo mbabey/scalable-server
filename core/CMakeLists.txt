@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(scalable_server
+project(scalable-server
         VERSION 0.0.1
         DESCRIPTION ""
         LANGUAGES C)
@@ -111,7 +111,7 @@ set(DOXYGEN_QUIET YES)
 doxygen_add_docs(doxygen
         ${HEADER_LIST}
         WORKING_DIRECTORY ..
-        COMMENT "Generating Doxygen documentation for scalable_server")
+        COMMENT "Generating Doxygen documentation for scalable-server")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CLANG_TIDY_CHECKS "*")
@@ -136,9 +136,9 @@ set(CLANG_TIDY_CHECKS "${CLANG_TIDY_CHECKS},-clang-analyzer-security.insecureAPI
 set(CLANG_TIDY_CHECKS "${CLANG_TIDY_CHECKS},-android-cloexec-accept")
 set(CMAKE_C_CLANG_TIDY clang-tidy -checks=${CLANG_TIDY_CHECKS};--quiet)
 
-add_executable(scalable_server ${SOURCE_LIST})
-target_include_directories(scalable_server PRIVATE /usr/local/include)
-add_dependencies(scalable_server doxygen)
+add_executable(scalable-server ${SOURCE_LIST})
+target_include_directories(scalable-server PRIVATE /usr/local/include)
+add_dependencies(scalable-server doxygen)
 
 find_library(LIBDC_ERROR dc_error REQUIRED)
 find_library(LIBDC_ENV dc_env REQUIRED)
@@ -151,13 +151,13 @@ find_library(LIB_CONFIG config REQUIRED)
 find_library(LIBDC_APPLICATION dc_application REQUIRED)
 find_library(MEM_MANAGER mem_manager REQUIRED)
 
-target_link_libraries(scalable_server PUBLIC ${LIBDC_ERROR})
-target_link_libraries(scalable_server PUBLIC ${LIBDC_ENV})
-target_link_libraries(scalable_server PUBLIC ${LIBDC_C})
-target_link_libraries(scalable_server PUBLIC ${LIBDC_POSIX})
-target_link_libraries(scalable_server PUBLIC ${LIBDC_UNIX})
-target_link_libraries(scalable_server PUBLIC ${LIBDC_UTIL})
-target_link_libraries(scalable_server PUBLIC ${LIBDC_FSM})
-target_link_libraries(scalable_server PUBLIC ${LIB_CONFIG})
-target_link_libraries(scalable_server PUBLIC ${LIBDC_APPLICATION})
-target_link_libraries(scalable_server PUBLIC ${MEM_MANAGER})
+target_link_libraries(scalable-server PUBLIC ${LIBDC_ERROR})
+target_link_libraries(scalable-server PUBLIC ${LIBDC_ENV})
+target_link_libraries(scalable-server PUBLIC ${LIBDC_C})
+target_link_libraries(scalable-server PUBLIC ${LIBDC_POSIX})
+target_link_libraries(scalable-server PUBLIC ${LIBDC_UNIX})
+target_link_libraries(scalable-server PUBLIC ${LIBDC_UTIL})
+target_link_libraries(scalable-server PUBLIC ${LIBDC_FSM})
+target_link_libraries(scalable-server PUBLIC ${LIB_CONFIG})
+target_link_libraries(scalable-server PUBLIC ${LIBDC_APPLICATION})
+target_link_libraries(scalable-server PUBLIC ${MEM_MANAGER})

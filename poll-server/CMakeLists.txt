@@ -167,4 +167,4 @@ add_dependencies(poll-server doxygen)
 
 find_library(MEM_MANAGER mem_manager REQUIRED)
 
-target_link_libraries(scalable_server PUBLIC ${MEM_MANAGER})
+target_link_libraries(poll-server PUBLIC ${MEM_MANAGER})
