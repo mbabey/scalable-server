@@ -31,11 +31,9 @@ struct api_functions
  * </p>
  */
 enum Server_States {
-    OPEN_LIBRARY = 0,
-    INITIALIZE_SERVER,
+    INITIALIZE_SERVER = 0,
     RUN_SERVER,
     CLOSE_SERVER,
-    CLOSE_LIBRARY,
     ERROR,
     EXIT
 };
