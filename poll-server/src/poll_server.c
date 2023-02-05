@@ -10,7 +10,7 @@ struct state_object *setup_state(struct memory_manager *mm)
 {
     struct state_object *so;
     
-    so = (struct state_object *) Mmm_calloc(1, sizeof (struct state_object), mm);
+    so = (struct state_object *) Mmm_calloc(1, sizeof(struct state_object), mm);
     if (!so) // Depending on whether more is added to this state object, this if clause may go.
     {
         return NULL;
@@ -54,7 +54,7 @@ int destroy_state(struct state_object *so)
     int big_bad_error;
     
     big_bad_error = 0;
-    status = close(so->listen_fd);
+    status        = close(so->listen_fd);
     if (status == -1)
     {
         switch (errno)
@@ -71,19 +71,22 @@ int destroy_state(struct state_object *so)
         }
     }
     
-    status = close(*so->client_fd); // TODO(Max): run this for each socket
-    if (status == -1)
+    for (size_t sfd_num = 0; sfd_num < MAX_CONNECTIONS; ++sfd_num)
     {
-        switch (errno)
+        status = close(*(so->client_fd + sfd_num));
+        if (status == -1)
         {
-            case EBADF: // Not a problem.
+            switch (errno)
             {
-                errno = 0;
-                break;
-            }
-            default:
-            {
-                big_bad_error = 1; // TODO: EIO or EINTR; not sure what to do here.
+                case EBADF: // Not a problem.
+                {
+                    errno = 0;
+                    break;
+                }
+                default:
+                {
+                    big_bad_error = 1; // TODO: EIO or EINTR; not sure what to do here.
+                }
             }
         }
     }
