@@ -32,6 +32,18 @@ struct state_object *setup_state(struct memory_manager *mm);
 int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_addr);
 
 /**
+ * run_poll_server
+ * <p>
+ * Run the poll server. Wait for activity on one of the polled sockets; if activity
+ * is on the listen socket, accept a new connection. If activity is on any other socket,
+ * handle that message.
+ * </p>
+ * @param co the core object
+ * @return 0 on success, -1 and set errno on failure
+ */
+int run_poll_server(struct core_object *co);
+
+/**
  * destroy_state
  * <p>
  * Close all connections and all open sockets.

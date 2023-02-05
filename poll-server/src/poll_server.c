@@ -2,6 +2,8 @@
 #include "../include/poll_server.h"
 
 #include <errno.h>
+#include <poll.h>
+#include <string.h>
 #include <sys/socket.h> // back compatability
 #include <sys/types.h>  // back compatability
 #include <unistd.h>
@@ -44,6 +46,24 @@ int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_a
     /* Only assign if absolute success. listen_fd == 0 can be used during teardown
      * to determine whether there is a socket to close. */
     so->listen_fd = fd;
+    
+    return 0;
+}
+
+int run_poll_server(struct core_object *co)
+{
+    struct pollfd pollfds[MAX_CONNECTIONS + 1]; // +1 for the listen socket.
+    struct pollfd listen_pollfd;
+    
+    // Set up the listen socket pollfd
+    listen_pollfd.fd = co->so->listen_fd;
+    listen_pollfd.events = POLLIN;
+    
+    memset(pollfds, 0, sizeof(pollfds));
+    
+    pollfds[0] = listen_pollfd;
+
+    execute_poll();
     
     return 0;
 }

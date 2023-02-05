@@ -23,10 +23,10 @@ int run_server(struct core_object *co)
 {
     printf("RUN POLL SERVER\n");
     
-    // Accept connections
-    // Add new connections to the pollfds array
-    // Read fully from connections
-    // As read is done, log results
+    if (run_poll_server(co) == -1)
+    {
+        return ERROR;
+    }
     
     return CLOSE_SERVER;
 }
@@ -35,7 +35,10 @@ int close_server(struct core_object *co)
 {
     printf("CLOSE POLL SERVER\n");
     
-    destroy_state(co->so);
+    if (destroy_state(co->so) == -1)
+    {
+        return ERROR;
+    }
     
     return EXIT;
 }
