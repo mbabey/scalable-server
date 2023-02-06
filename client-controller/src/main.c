@@ -1,3 +1,5 @@
+#include <state.h>
+
 #include <dc_env/env.h>
 #include <dc_error/error.h>
 #include <dc_application/application.h>
@@ -9,8 +11,7 @@
 #include <getopt.h>
 #include <dlfcn.h>
 
-#define LOG_FILE_NAME "log.csv"
-#define LOG_OPEN_MODE "w" // Mode is set to truncate for independent results from each experiment.
+#define DEFAULT_PORT "5000" // port read as a string
 
 /**
  * application_settings
@@ -21,6 +22,7 @@
 struct application_settings
 {
     struct dc_opt_settings   opts;
+    struct dc_setting_string *port;
 };
 
 /**
@@ -78,6 +80,7 @@ int main(int argc, char *argv[])
     struct dc_env              *env;
     struct dc_error            *err;
     struct dc_application_info *info;
+
     tracer = NULL;
     //tracer = trace_reporter;
     err    = dc_error_create(false);
@@ -105,6 +108,7 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
     }
 
     settings->opts.parent.config_path = dc_setting_path_create(env, err);
+    settings->port                 = dc_setting_string_create(env, err);
 
     struct options opts[] = {
             {(struct dc_setting *) settings->opts.parent.config_path,
@@ -117,13 +121,23 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
                     NULL,
                     dc_string_from_config,
                     NULL},
+            {(struct dc_setting *) settings->port,
+                    dc_options_set_string,
+                    "port",
+                    required_argument,
+                    'p',
+                    "PORT",
+                    dc_string_from_string,
+                    "port",
+                    dc_string_from_config,
+                    DEFAULT_PORT},
     };
 
     settings->opts.opts_count = (sizeof(opts) / sizeof(struct options)) + 1;
     settings->opts.opts_size  = sizeof(struct options);
     settings->opts.opts       = dc_calloc(env, err, settings->opts.opts_count, settings->opts.opts_size);
     dc_memcpy(env, settings->opts.opts, opts, sizeof(opts));
-    settings->opts.flags      = "";
+    settings->opts.flags      = "p:";
     settings->opts.env_prefix = "CLIENT_CONTROLLER";
 
     return (struct dc_application_settings *) settings;
@@ -132,12 +146,23 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
 static int run(const struct dc_env *env, struct dc_error *err, struct dc_application_settings *settings)
 {
     DC_TRACE(env);
+    int result;
     struct application_settings *app_settings;
+    struct state s;
+    const char *port;
 
-    int ret_val = 0;
+    app_settings = (struct application_settings *) settings;
+    port = dc_setting_string_get(env, app_settings->port);
 
+    result = init_state(port, &s, err, env);
+    if (result != -1)
+    {
+//        result = handle(&s, err, env);
+        int dest_result = destroy_state(&s, err, env);
+        result = result || dest_result;
+    }
 
-    return ret_val;
+    return result;
 }
 
 static int destroy_settings(const struct dc_env *env, struct dc_error *err, struct dc_application_settings **psettings)

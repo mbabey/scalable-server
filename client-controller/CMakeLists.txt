@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.22)
 
 project(client_controller
         VERSION 0.0.1
@@ -11,8 +11,14 @@ set(SOURCE_DIR src)
 set(INCLUDE_DIR include)
 set(SOURCE_LIST
         ${SOURCE_DIR}/main.c
+        ${SOURCE_DIR}/state.c
+        ${SOURCE_DIR}/util.c
+        ${SOURCE_DIR}/handle.c
         )
 set(HEADER_LIST
+        ${INCLUDE_DIR}/state.c
+        ${INCLUDE_DIR}/util.h
+        ${INCLUDE_DIR}/handle.h
         )
 
 set(SANITIZE TRUE)

@@ -4,11 +4,15 @@
 #include <netinet/in.h>
 
 struct state {
-    in_port_t port_in;
-    char* ip_in;
-    struct sockaddr_in addr_in;
-    int fd_in;
-    int fd_out;
+    in_port_t controller_port;
+    char* controller_ip;
+    struct sockaddr_in controller_addr;
+    int controller_fd;
+    in_port_t server_port;
+    char* server_ip;
+    struct sockaddr_in server_addr;
+    int server_fd;
+    int log_fd;
 };
 
 #endif //SCALABLE_CLIENT_STATE_H
