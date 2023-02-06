@@ -4,6 +4,20 @@
 #include "./core/include/objects.h"
 
 /**
+ * Server_States
+ * <p>
+ * Enumerated states for the server. As return values, indicate the next state the server should take.
+ * </p>
+ */
+enum Server_States {
+    INITIALIZE_SERVER = 0,
+    RUN_SERVER,
+    CLOSE_SERVER,
+    ERROR,
+    EXIT
+};
+
+/**
  * api
  * <p>
  * Definition of an API function pointer.

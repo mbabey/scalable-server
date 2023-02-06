@@ -1,5 +1,5 @@
 #include "../include/objects.h"
-#include "../include/one_to_one.h"
+#include "../include/poll_server.h"
 
 #include <errno.h>
 #include <sys/socket.h> // back compatability
@@ -71,7 +71,7 @@ int destroy_state(struct state_object *so)
         }
     }
     
-    status = close(so->client_fd);
+    status = close(so->client_fd); // TODO(Max): run this for each socket
     if (status == -1)
     {
         switch (errno)

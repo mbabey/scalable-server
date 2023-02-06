@@ -11,10 +11,17 @@ set(SOURCE_DIR src)
 set(INCLUDE_DIR include)
 set(SOURCE_LIST
         ${SOURCE_DIR}/api_functions.c
+        ${SOURCE_DIR}/poll_server.c
+        #=vvvv= SOURCE FOR DUMMY MAIN =vvvv=#
+        ${SOURCE_DIR}/test_main.c
+        ../core/src/util.c
         )
 set(HEADER_LIST
         ${INCLUDE_DIR}/objects.h
+        ${INCLUDE_DIR}/poll_server.h
         ../api_functions.h
+        #=vvvv= INCLUDES FOR DUMMY MAIN =vvvv=#
+        ../core/include/util.h
         )
 
 set(SANITIZE TRUE)
@@ -135,32 +142,62 @@ set(CLANG_TIDY_CHECKS "${CLANG_TIDY_CHECKS},-android-cloexec-accept")
 set(CMAKE_C_CLANG_TIDY clang-tidy -checks=${CLANG_TIDY_CHECKS};--quiet)
 
 #========= vvv COMPILE AS LIBRARY vvv =========#
+#
+#add_library(poll-server SHARED ${SOURCE_LIST} ${HEADER_LIST})
+#target_include_directories(poll-server PRIVATE include/poll-server)
+#target_include_directories(poll-server PRIVATE /usr/local/include)
+#target_link_directories(poll-server PRIVATE /usr/local/lib)
+#
+#if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+#    target_include_directories(poll-server PRIVATE /usr/include)
+#endif ()
+#
+#set_target_properties(poll-server PROPERTIES
+#        VERSION ${PROJECT_VERSION}
+#        SOVERSION ${PROJECT_VERSION_MAJOR})
+#
+#get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
+#
+#if ("${LIB64}" STREQUAL "TRUE")
+#    set(LIBSUFFIX 64)
+#else()
+#    set(LIBSUFFIX "")
+#endif()
+#
+#set(INSTALL_LIB_DIR lib${LIBSUFFIX} CACHE PATH "Installation directory for libraries")
+#mark_as_advanced(INSTALL_LIB_DIR)
+#
+#install(TARGETS poll-server LIBRARY DESTINATION ${INSTALL_LIB_DIR})
+#install(FILES ${HEADER_LIST} DESTINATION include/poll-server)
 
-add_library(poll-server SHARED ${SOURCE_LIST} ${HEADER_LIST})
-target_include_directories(poll-server PRIVATE include/poll-server)
+#========= ^^^ COMPILE AS LIBRARY ^^^ =========#
+#========= vvv COMPILE AS EXECUTABLE vvv =========#
+
+add_executable(poll-server ${SOURCE_LIST})
 target_include_directories(poll-server PRIVATE /usr/local/include)
-target_link_directories(poll-server PRIVATE /usr/local/lib)
 
-if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    target_include_directories(poll-server PRIVATE /usr/include)
-endif ()
-
-set_target_properties(poll-server PROPERTIES
-        VERSION ${PROJECT_VERSION}
-        SOVERSION ${PROJECT_VERSION_MAJOR})
-
-get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
-
-if ("${LIB64}" STREQUAL "TRUE")
-    set(LIBSUFFIX 64)
-else()
-    set(LIBSUFFIX "")
-endif()
-
-set(INSTALL_LIB_DIR lib${LIBSUFFIX} CACHE PATH "Installation directory for libraries")
-mark_as_advanced(INSTALL_LIB_DIR)
-
-install(TARGETS poll-server LIBRARY DESTINATION ${INSTALL_LIB_DIR})
-install(FILES ${HEADER_LIST} DESTINATION include/poll-server)
+#========= ^^^ COMPILE AS EXECUTABLE ^^^ =========#
 
 add_dependencies(poll-server doxygen)
+
+find_library(LIBDC_ERROR dc_error REQUIRED)
+find_library(LIBDC_ENV dc_env REQUIRED)
+find_library(LIBDC_C dc_c REQUIRED)
+find_library(LIBDC_POSIX dc_posix REQUIRED)
+find_library(LIBDC_UNIX dc_unix REQUIRED)
+find_library(LIBDC_UTIL dc_util REQUIRED)
+find_library(LIBDC_FSM dc_fsm REQUIRED)
+find_library(LIB_CONFIG config REQUIRED)
+find_library(LIBDC_APPLICATION dc_application REQUIRED)
+find_library(MEM_MANAGER mem_manager REQUIRED)
+
+target_link_libraries(poll-server PUBLIC ${LIBDC_ERROR})
+target_link_libraries(poll-server PUBLIC ${LIBDC_ENV})
+target_link_libraries(poll-server PUBLIC ${LIBDC_C})
+target_link_libraries(poll-server PUBLIC ${LIBDC_POSIX})
+target_link_libraries(poll-server PUBLIC ${LIBDC_UNIX})
+target_link_libraries(poll-server PUBLIC ${LIBDC_UTIL})
+target_link_libraries(poll-server PUBLIC ${LIBDC_FSM})
+target_link_libraries(poll-server PUBLIC ${LIB_CONFIG})
+target_link_libraries(poll-server PUBLIC ${LIBDC_APPLICATION})
+target_link_libraries(poll-server PUBLIC ${MEM_MANAGER})

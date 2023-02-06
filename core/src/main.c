@@ -1,17 +1,12 @@
-#include "objects.h"
 #include "util.h"
-#include "../../api_functions.h"
 
-#include <dc_env/env.h>
-#include <dc_error/error.h>
-#include <dc_application/application.h>
 #include <dc_application/options.h>
 #include <dc_c/dc_stdlib.h>
 #include <dc_c/dc_string.h>
 #include <mem_manager/manager.h>
 
-#include <string.h>
 #include <getopt.h>
+#include <string.h>
 #include <dlfcn.h>
 
 #define LOG_FILE_NAME "logs.csv"
@@ -49,8 +44,10 @@ struct api_functions
  */
 struct application_settings
 {
-    struct dc_opt_settings   opts;
-    struct dc_setting_string *library;
+    struct dc_opt_settings      opts;
+    struct dc_setting_string    *library;
+    struct dc_setting_in_port_t *port_num;
+    struct dc_setting_string    *ip_addr;
     // storing a struct is not possible, only use as app settings for now
 };
 
@@ -78,39 +75,6 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
 static int run(const struct dc_env *env, struct dc_error *err, struct dc_application_settings *settings);
 
 /**
- * setup_core_object
- * <p>
- * Zero the core_object. Setup other objects and attach them to the core_object.
- * Open the log file and attach it to the core object.
- * </p>
- * @param co the core object
- * @return 0 on success. On failure, -1 and set errno.
- */
-int setup_core_object(struct core_object *co, const struct dc_env *env, struct dc_error *err);
-
-/**
- * destroy_core_object
- * <p>
- * Destroy the core object and all of its fields. Does not destroy the state object;
- * the state object must be destroyed by the library destroy_server function.
- * </p>
- * @param co the core object
- */
-void destroy_core_object(struct core_object *co);
-
-/**
- * get_api
- * <p>
- * Open a given library and attempt to load API functions into the api_functions struct.
- * </p>
- * @param api_functions struct containing API functions.
- * @param lib_name name of the library.
- * @param env pointer to a dc_env struct.
- * @return The opened library. NULL and set errno on failure.
- */
-static void * get_api(struct api_functions * api, const char * lib_name, const struct dc_env * env);
-
-/**
  * destroy_settings
  * <p>
  * Frees memory allocated for the application settings struct.
@@ -123,17 +87,15 @@ static void * get_api(struct api_functions * api, const char * lib_name, const s
 static int destroy_settings(const struct dc_env *env, struct dc_error *err, struct dc_application_settings **psettings);
 
 /**
- * trace_reporter
+ * run_core
  * <p>
- * formatting function for trace reporting.
+ * Open the library, switch on the states returned by api functions.
  * </p>
- * @param env pointer to a dc_env struct
- * @param file_name name of the file the trace occurs in.
- * @param function_name name of the function the trace occurs in.
- * @param line_number the line the trace occurs in.
+ * @param co the core object
+ * @param lib_name the name of the library to open
+ * @return 0 on a success exit, -1 on a failure exit
  */
-static void
-trace_reporter(const struct dc_env *env, const char *file_name, const char *function_name, size_t line_number);
+static int run_core(struct core_object *co, const char *lib_name);
 
 int main(int argc, char *argv[])
 {
@@ -170,6 +132,8 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
     
     settings->opts.parent.config_path = dc_setting_path_create(env, err);
     settings->library                 = dc_setting_string_create(env, err);
+    settings->port_num                = dc_setting_in_port_t_create(env, err);
+    settings->ip_addr                 = dc_setting_string_create(env, err);
     
     struct options opts[] = {
             {(struct dc_setting *) settings->opts.parent.config_path,
@@ -192,13 +156,33 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
                     "library",
                     dc_string_from_config,
                     DEFAULT_LIBRARY},
+            {(struct dc_setting *) settings->port_num,
+                    dc_options_set_in_port_t,
+                    "port",
+                    required_argument,
+                    'p',
+                    "PORT",
+                    dc_in_port_t_from_string,
+                    "port",
+                    dc_in_port_t_from_config,
+                    DEFAULT_PORT},
+            {(struct dc_setting *) settings->ip_addr,
+                    dc_options_set_string,
+                    "ip-addr",
+                    required_argument,
+                    'i',
+                    "IP_ADDR",
+                    dc_string_from_string,
+                    "ip-addr",
+                    dc_string_from_config,
+                    DEFAULT_IP},
     };
     
     settings->opts.opts_count = (sizeof(opts) / sizeof(struct options)) + 1;
     settings->opts.opts_size  = sizeof(struct options);
     settings->opts.opts       = dc_calloc(env, err, settings->opts.opts_count, settings->opts.opts_size);
     dc_memcpy(env, settings->opts.opts, opts, sizeof(opts));
-    settings->opts.flags      = "l:";
+    settings->opts.flags      = "l:p:i:";
     settings->opts.env_prefix = "SCALABLE_SERVER_";
     
     return (struct dc_application_settings *) settings;
@@ -208,117 +192,88 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
 {
     DC_TRACE(env);
     struct application_settings *app_settings;
-    const char                  *library;
+    struct core_object          co;
+    const char                  *lib_name;
+    in_port_t                   port_num;
+    const char                  *ip_addr;
     
-    int                ret_val;
-    struct core_object co;
-    void * lib;
+    int ret_val;
     
     app_settings = (struct application_settings *) settings;
-    library      = dc_setting_string_get(env, app_settings->library);
+    lib_name     = dc_setting_string_get(env, app_settings->library);
+    port_num     = dc_setting_in_port_t_get(env, app_settings->port_num);
+    ip_addr      = dc_setting_string_get(env, app_settings->ip_addr);
     
     // create core object
-    ret_val = setup_core_object(&co, env, err);
-    if (!ret_val)
+    ret_val = setup_core_object(&co, env, err, port_num, ip_addr);
+    if (ret_val == -1)
     {
-        struct api_functions api;
-        lib = get_api(&api, library, env);
-        if (lib == NULL)
-        {
-            ret_val = -1;
-        } else {
-            // TODO: how do we want to handle return values here?
-            ret_val = api.initialize_server(&co);
-            // check error
-
-            ret_val = api.run_server(&co);
-            // check error
-
-            ret_val = api.close_server(&co);
-            // check error
-
-            ret_val = close_lib(lib);
-            if (ret_val != 0)
-            {
-                (void) fprintf(stderr, "Fatal: could not close library %s: %s\n", library, strerror(errno));
-            }
-        }
-        destroy_core_object(&co);
+        return EXIT_FAILURE;
     }
+    
+    ret_val = run_core(&co, lib_name);
+    
+    destroy_core_object(&co);
     return ret_val;
 }
 
-int setup_core_object(struct core_object *co, const struct dc_env *env, struct dc_error *err)
+static int run_core(struct core_object *co, const char *lib_name)
 {
-    DC_TRACE(env);
-    memset(co, 0, sizeof(struct core_object));
+    struct api_functions api;
+    void                 *lib;
+    int                  next_state;
+    int                  exit_status;
+    int                  run;
     
-    co->env = env;
-    co->err = err;
-    co->mm  = init_mem_manager();
-    if (!co->mm)
+    lib        = get_api(&api, lib_name, co->env);
+    run        = (lib) ? 1 : 0;
+    next_state = INITIALIZE_SERVER;
+    while (run)
     {
-        (void) fprintf(stderr, "Fatal: could not initialize memory manager: %s\n", strerror(errno));
-        return -1;
+        switch (next_state)
+        {
+            case INITIALIZE_SERVER:
+            {
+                next_state = api.initialize_server(co);
+                break;
+            }
+            case RUN_SERVER:
+            {
+                next_state = api.run_server(co);
+                break;
+            }
+            case CLOSE_SERVER:
+            {
+                next_state = api.close_server(co);
+                break;
+            }
+            case ERROR:
+            {
+                // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
+                (void) fprintf(stderr, "Fatal: error during server runtime: %s\n", strerror(errno));
+                run = 0;
+                exit_status = EXIT_FAILURE;
+                break;
+            }
+            case EXIT:
+            {
+                run = 0;
+                exit_status = EXIT_SUCCESS;
+                break;
+            }
+            default: // Should not get here.
+            {
+                run = 0;
+            }
+        }
     }
     
-    co->log_file = open_file(LOG_FILE_NAME, LOG_OPEN_MODE);
-    if (!co->log_file)
+    if (lib)
     {
-        (void) fprintf(stderr, "Fatal: could not open %s: %s\n", LOG_FILE_NAME, strerror(errno));
-        return -1;
+        close_lib(lib, lib_name); // TODO(): How to handle error here?
     }
     
-    return 0;
-}
-
-void destroy_core_object(struct core_object *co)
-{
-    if (co->log_file)
-    {
-        fclose(co->log_file);
-    }
-    free_mem_manager(co->mm);
-}
-
-static void * get_api(struct api_functions * api, const char * lib_name, const struct dc_env * env)
-{
-    DC_TRACE(env);
-    void *lib;
-    bool get_func_err;
-
-    lib = open_lib(lib_name, RTLD_LAZY);
-    if (lib == NULL)
-    {
-        (void) fprintf(stderr, "Fatal: could open API library %s: %s\n", lib_name, strerror(errno));
-        return lib;
-    }
-
-    api->initialize_server = get_func(lib, API_INIT);
-    if (api->initialize_server == NULL)
-    {
-        (void) fprintf(stderr, "Fatal: could not load API function %s: %s\n", API_INIT, strerror(errno));
-        get_func_err = true;
-    }
-    api->run_server = get_func(lib, API_RUN);
-    if (api->run_server == NULL)
-    {
-        (void) fprintf(stderr, "Fatal: could not load API function %s: %s\n", API_RUN, strerror(errno));
-        get_func_err = true;
-    }
-    api->close_server = get_func(lib, API_CLOSE);
-    if (api->close_server == NULL)
-    {
-        (void) fprintf(stderr, "Fatal: could not load API function %s: %s\n", API_CLOSE, strerror(errno));
-        get_func_err = true;
-    }
-
-    if (get_func_err) {
-        close_lib(lib);
-        return NULL;
-    }
-
-    return lib;
+    return exit_status;
 }
 
 static int destroy_settings(const struct dc_env *env, struct dc_error *err, struct dc_application_settings **psettings)
@@ -337,10 +292,4 @@ static int destroy_settings(const struct dc_env *env, struct dc_error *err, stru
     }
     
     return 0;
-}
-
-static void
-trace_reporter(const struct dc_env *env, const char *file_name, const char *function_name, size_t line_number)
-{
-    fprintf(stdout, "TRACE: %s : %s : @ %zu\n", file_name, function_name, line_number);
 }
