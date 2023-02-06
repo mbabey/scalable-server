@@ -48,7 +48,7 @@ int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_a
     return 0;
 }
 
-void destroy_state(struct state_object *so)
+int destroy_state(struct state_object *so)
 {
     int status;
     int big_bad_error;
