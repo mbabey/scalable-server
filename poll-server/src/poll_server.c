@@ -23,7 +23,7 @@ volatile int GOGO_POLL = 1;
  * @param pollfds the pollfd array
  * @return 0 on success, -1 and set errno on failure
  */
-int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds);
+static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds);
 
 /**
  * poll_accept
@@ -35,7 +35,7 @@ int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds);
  * @param co the core object
  * @return the 0 on success, -1 and set errno on failure
  */
-int poll_accept(struct core_object *co);
+static int poll_accept(struct core_object *co);
 
 /**
  * poll_comm
@@ -47,7 +47,7 @@ int poll_accept(struct core_object *co);
  * @param pollfds the pollfds array
  * @return 0 on success, -1 and set errno on failure
  */
-int poll_comm(struct core_object *co, struct pollfd **pollfds);
+static int poll_comm(struct core_object *co, struct pollfd **pollfds);
 
 /**
  * poll_read
@@ -58,7 +58,7 @@ int poll_comm(struct core_object *co, struct pollfd **pollfds);
  * @param fd the file descriptor
  * @return 0 on success, -1 on failure and set errno
  */
-int poll_read(struct core_object *co, struct pollfd *fd);
+static int poll_read(struct core_object *co, struct pollfd *fd);
 
 /**
  * poll_remove_connection
@@ -68,7 +68,7 @@ int poll_read(struct core_object *co, struct pollfd *fd);
  * @param fd
  * @return
  */
-int poll_remove_connection(struct core_object *co, struct pollfd *fd);
+static int poll_remove_connection(struct core_object *co, struct pollfd *fd);
 
 struct state_object *setup_state(struct memory_manager *mm)
 {
@@ -133,7 +133,7 @@ int run_poll_server(struct core_object *co)
     return 0;
 }
 
-int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds)
+static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds)
 {
     int poll_status;
     
@@ -161,14 +161,14 @@ int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds)
     return 0;
 }
 
-int poll_accept(struct core_object *co)
+static int poll_accept(struct core_object *co)
 {
     
     
     return 0;
 }
 
-int poll_comm(struct core_object *co, struct pollfd **pollfds)
+static int poll_comm(struct core_object *co, struct pollfd **pollfds)
 {
     struct pollfd *fd;
     
@@ -193,7 +193,7 @@ int poll_comm(struct core_object *co, struct pollfd **pollfds)
     return 0;
 }
 
-int poll_read(struct core_object *co, struct pollfd *fd)
+static int poll_read(struct core_object *co, struct pollfd *fd)
 {
     
     
