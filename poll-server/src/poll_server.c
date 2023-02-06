@@ -49,6 +49,27 @@ int poll_accept(struct core_object *co);
  */
 int poll_comm(struct core_object *co, struct pollfd **pollfds);
 
+/**
+ * poll_read
+ * <p>
+ * Read from a file descriptor. Log the results in the log file.
+ * </p>
+ * @param co the core object // TODO(max): this may be FILE *?
+ * @param fd the file descriptor
+ * @return 0 on success, -1 on failure and set errno
+ */
+int poll_read(struct core_object *co, struct pollfd *fd);
+
+/**
+ * poll_remove_connection
+ * <p>
+ * </p>
+ * @param co
+ * @param fd
+ * @return
+ */
+int poll_remove_connection(struct core_object *co, struct pollfd *fd);
+
 struct state_object *setup_state(struct memory_manager *mm)
 {
     struct state_object *so;
@@ -116,7 +137,7 @@ int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds)
 {
     int poll_status;
     
-    while (GOGO_POLL)
+    while (GOGO_POLL) // TODO(max): setup signal handler
     {
         poll_status = poll(pollfds, nfds, 0);
         if (poll_status == -1)
@@ -135,8 +156,6 @@ int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds)
         {
             poll_comm(co, &pollfds);
         }
-        
-        
     }
     
     return 0;
@@ -151,25 +170,32 @@ int poll_accept(struct core_object *co)
 
 int poll_comm(struct core_object *co, struct pollfd **pollfds)
 {
-    pollfd *fd;
+    struct pollfd *fd;
     
-    for (size_t fd_num = 1; fd_num < co->so->num_connections; ++fd_num)
+    for (size_t fd_num = 1; fd_num <= co->so->num_connections; ++fd_num)
     {
         fd = *(pollfds + fd_num);
         if (fd->revents == POLLIN)
         {
-            if (poll_read() == -1)
+            if (poll_read(co, fd) == -1)
             {
                 return -1;
             }
         } else if (fd->revents == POLLHUP)
         {
-            if (poll_remove_connection() == -1)
+            if (poll_remove_connection(co, fd) == -1)
             {
                 return -1;
             }
         }
     }
+    
+    return 0;
+}
+
+int poll_read(struct core_object *co, struct pollfd *fd)
+{
+    
     
     return 0;
 }
