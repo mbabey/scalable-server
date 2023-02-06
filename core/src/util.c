@@ -22,7 +22,7 @@
  * @param mode the mode to open the file with.
  * @return The file. NULL and set errno on failure.
  */
-FILE *open_file(const char * file_name, const char * mode);
+static FILE *open_file(const char * file_name, const char * mode);
 
 /**
  * assemble_listen_addr
@@ -35,7 +35,7 @@ FILE *open_file(const char * file_name, const char * mode);
  * @param mm the memory manager object
  * @return 0 on success, -1 and set errno on failure.
  */
-int assemble_listen_addr(struct sockaddr_in *listen_addr, in_port_t port_num, const char *ip_addr);
+static int assemble_listen_addr(struct sockaddr_in *listen_addr, in_port_t port_num, const char *ip_addr);
 
 /**
  * open_lib
@@ -46,7 +46,7 @@ int assemble_listen_addr(struct sockaddr_in *listen_addr, in_port_t port_num, co
  * @param mode the mode to open the library with.
  * @return The library. NULL and set errno on failure.
  */
-void *open_lib(const char *lib_name, int mode);
+static void *open_lib(const char *lib_name, int mode);
 
 /**
  * get_func
@@ -57,7 +57,7 @@ void *open_lib(const char *lib_name, int mode);
  * @param func_name the name of the function to get.
  * @return The function. NULL and set errno on failure.
  */
-void *get_func(void *lib, const char *func_name);
+static void *get_func(void *lib, const char *func_name);
 
 void trace_reporter(const struct dc_env *env, const char *file_name, const char *function_name, size_t line_number)
 {
@@ -97,7 +97,7 @@ int setup_core_object(struct core_object *co, const struct dc_env *env, struct d
     return 0;
 }
 
-FILE *open_file(const char *file_name, const char *mode)
+static FILE *open_file(const char *file_name, const char *mode)
 {
     FILE *file;
     
@@ -107,7 +107,7 @@ FILE *open_file(const char *file_name, const char *mode)
     return file;
 }
 
-int assemble_listen_addr(struct sockaddr_in *listen_addr, const in_port_t port_num, const char *ip_addr)
+static int assemble_listen_addr(struct sockaddr_in *listen_addr, const in_port_t port_num, const char *ip_addr)
 {
     int ret_val;
     
@@ -138,7 +138,7 @@ int assemble_listen_addr(struct sockaddr_in *listen_addr, const in_port_t port_n
     return ret_val;
 }
 
-void *open_lib(const char *lib_name, int mode)
+static void *open_lib(const char *lib_name, int mode)
 {
     void *lib;
     
@@ -207,7 +207,7 @@ void *get_api(struct api_functions *api, const char *lib_name, const struct dc_e
     return lib;
 }
 
-void *get_func(void *lib, const char *func_name)
+static void *get_func(void *lib, const char *func_name)
 {
     void *func;
     
