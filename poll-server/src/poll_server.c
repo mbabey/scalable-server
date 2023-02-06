@@ -37,6 +37,18 @@ int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds);
  */
 int poll_accept(struct core_object *co);
 
+/**
+ * poll_comm
+ * <p>
+ * Read from all file descriptors in pollfds for which POLLIN is set.
+ * Remove all file descriptors in pollfds for which POLLHUP is set.
+ * </p>
+ * @param co the core object
+ * @param pollfds the pollfds array
+ * @return 0 on success, -1 and set errno on failure
+ */
+int poll_comm(struct core_object *co, struct pollfd **pollfds);
+
 struct state_object *setup_state(struct memory_manager *mm)
 {
     struct state_object *so;
@@ -85,13 +97,13 @@ int run_poll_server(struct core_object *co)
     struct pollfd listen_pollfd;
     
     // Set up the listen socket pollfd
-    listen_pollfd.fd = co->so->listen_fd;
+    listen_pollfd.fd     = co->so->listen_fd;
     listen_pollfd.events = POLLIN;
     
     memset(pollfds, 0, sizeof(pollfds));
     
     pollfds[0] = listen_pollfd;
-
+    
     if (execute_poll(co, pollfds, sizeof(pollfds)) == -1)
     {
         return -1;
@@ -115,24 +127,51 @@ int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds)
         // If action on the listen socket.
         if ((*pollfds).revents == POLLIN && co->so->num_connections < MAX_CONNECTIONS)
         {
-            poll_accept(co);
+            if (poll_accept(co) == -1)
+            {
+                return -1;
+            }
         } else
         {
-        
+            poll_comm(co, &pollfds);
         }
         
         
-        
-     
     }
     
     return 0;
 }
+
 int poll_accept(struct core_object *co)
 {
     
     
-    return 0
+    return 0;
+}
+
+int poll_comm(struct core_object *co, struct pollfd **pollfds)
+{
+    pollfd *fd;
+    
+    for (size_t fd_num = 1; fd_num < co->so->num_connections; ++fd_num)
+    {
+        fd = *(pollfds + fd_num);
+        if (fd->revents == POLLIN)
+        {
+            if (poll_read() == -1)
+            {
+                return -1;
+            }
+        } else if (fd->revents == POLLHUP)
+        {
+            if (poll_remove_connection() == -1)
+            {
+                return -1;
+            }
+        }
+    }
+    
+    return 0;
 }
 
 int destroy_state(struct state_object *so)
