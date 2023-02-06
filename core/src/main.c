@@ -7,6 +7,34 @@
 
 #include <getopt.h>
 #include <string.h>
+#include <dlfcn.h>
+
+#define LOG_FILE_NAME "logs.csv"
+#define LOG_OPEN_MODE "w" // Mode is set to truncate for independent results from each experiment.
+
+// TODO: relative path should be changed to absolute.
+#ifdef __linux__
+#define DEFAULT_LIBRARY "../../one-to-one/cmake-build-debug/libone-to-one.so"
+#else
+#define DEFAULT_LIBRARY "../../one-to-one/cmake-build-debug/libone-to-one.dylib"
+#endif
+
+#define API_INIT "initialize_server"
+#define API_RUN "run_server"
+#define API_CLOSE "close_server"
+
+/**
+ * api_functions
+ * <p>
+ * Struct containing pointers to all API functions.
+ * </p>
+ */
+struct api_functions
+{
+    api initialize_server;
+    api run_server;
+    api close_server;
+};
 
 /**
  * application_settings
