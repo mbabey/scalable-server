@@ -17,7 +17,13 @@
 #define LOG_FILE_NAME "logs.csv"
 #define LOG_OPEN_MODE "w" // Mode is set to truncate for independent results from each experiment.
 
-#define DEFAULT_LIBRARY "../../one-to-one/cmake-build-debug/libone-to-one.dylib" // TODO: relative path should be changed to absolute.
+// TODO: relative path should be changed to absolute.
+#ifdef __linux__
+#define DEFAULT_LIBRARY "../../one-to-one/cmake-build-debug/libone-to-one.so"
+#else
+#define DEFAULT_LIBRARY "../../one-to-one/cmake-build-debug/libone-to-one.dylib"
+#endif
+
 #define API_INIT "initialize_server"
 #define API_RUN "run_server"
 #define API_CLOSE "close_server"
