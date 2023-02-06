@@ -8,6 +8,35 @@
 #include <sys/types.h>  // back compatability
 #include <unistd.h>
 
+/**
+ * Whether the poll loop should be running.
+ */
+volatile int GOGO_POLL = 1;
+
+/**
+ * execute_poll
+ * <p>
+ * Execute the poll function to listen for action of pollfds. Action on the
+ * listen fd will call accept; otherwise, action will call read all.
+ * </p>
+ * @param co the core object
+ * @param pollfds the pollfd array
+ * @return 0 on success, -1 and set errno on failure
+ */
+int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds);
+
+/**
+ * poll_accept
+ * <p>
+ * Accept a new connection to the server. Set the value of the fd
+ * increment the num connections in the state object and. Log the connection
+ * in the log file.
+ * </p>
+ * @param co the core object
+ * @return the 0 on success, -1 and set errno on failure
+ */
+int poll_accept(struct core_object *co);
+
 struct state_object *setup_state(struct memory_manager *mm)
 {
     struct state_object *so;
@@ -63,9 +92,47 @@ int run_poll_server(struct core_object *co)
     
     pollfds[0] = listen_pollfd;
 
-    execute_poll();
+    if (execute_poll(co, pollfds, sizeof(pollfds)) == -1)
+    {
+        return -1;
+    }
     
     return 0;
+}
+
+int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds)
+{
+    int poll_status;
+    
+    while (GOGO_POLL)
+    {
+        poll_status = poll(pollfds, nfds, 0);
+        if (poll_status == -1)
+        {
+            return -1;
+        }
+        
+        // If action on the listen socket.
+        if ((*pollfds).revents == POLLIN && co->so->num_connections < MAX_CONNECTIONS)
+        {
+            poll_accept(co);
+        } else
+        {
+        
+        }
+        
+        
+        
+     
+    }
+    
+    return 0;
+}
+int poll_accept(struct core_object *co)
+{
+    
+    
+    return 0
 }
 
 int destroy_state(struct state_object *so)
