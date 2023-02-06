@@ -200,12 +200,11 @@ int poll_read(struct core_object *co, struct pollfd *fd)
     return 0;
 }
 
-int destroy_state(struct state_object *so)
+void destroy_state(struct state_object *so)
 {
+    // NOLINTBEGIN(concurrency-mt-unsafe) : No threads here
     int status;
-    int big_bad_error;
     
-    big_bad_error = 0;
     status        = close(so->listen_fd);
     if (status == -1)
     {
@@ -218,7 +217,8 @@ int destroy_state(struct state_object *so)
             }
             default:
             {
-                big_bad_error = 1; // TODO: EIO or EINTR; not sure what to do here.
+                (void) fprintf(stderr, "Error: %s; state of listen socket is unspecified.\n",
+                               strerror(errno));
             }
         }
     }
@@ -237,16 +237,11 @@ int destroy_state(struct state_object *so)
                 }
                 default:
                 {
-                    big_bad_error = 1; // TODO: EIO or EINTR; not sure what to do here.
+                    (void) fprintf(stderr, "Error: %s; state of client socket #%zu is unspecified.\n",
+                                   strerror(errno), sfd_num);
                 }
             }
         }
     }
-    
-    if (big_bad_error)
-    {
-        return -1;
-    }
-    
-    return 0;
+    // NOLINTEND(concurrency-mt-unsafe)
 }
