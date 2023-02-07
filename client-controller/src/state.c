@@ -1,4 +1,5 @@
 #include "../include/state.h"
+#include "connection.h"
 
 #include <util.h>
 
@@ -21,10 +22,12 @@
  */
 static int start_listen(struct state * s, struct dc_error * err, struct dc_env * env);
 
-int init_state(const char *listen_port, struct state * s, struct dc_error * err, struct dc_env * env) {
+int init_state(int wait_period_sec, const char *listen_port, struct state * s, struct dc_error * err, struct dc_env * env) {
     DC_TRACE(env);
 
     memset(s, 0, sizeof(struct state));
+
+    s->wait_period_sec = wait_period_sec;
 
     s->listen_port = parse_port(listen_port, 10);
     if (s->listen_port == (in_port_t)0)
@@ -44,6 +47,10 @@ static int start_listen(struct state * s, struct dc_error * err, struct dc_env *
         return -1;
     }
 
+    if(set_sock_blocking(s->listen_fd, true) == -1) {
+        return -1;
+    }
+
     if (init_addr(&s->listen_addr, s->listen_port) == -1)
     {
         return -1;
@@ -53,13 +60,13 @@ static int start_listen(struct state * s, struct dc_error * err, struct dc_env *
     setsockopt(s->listen_fd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
     if(bind(s->listen_fd, (struct sockaddr *)&s->listen_addr, sizeof(struct sockaddr_in)) == -1)
     {
-        fprintf(stderr, "%s\n", strerror(errno));
+        (void) fprintf(stderr, "%s\n", strerror(errno));
         return -1;
     }
 
     if(listen(s->listen_fd, BACKLOG) == -1)
     {
-        fprintf(stderr, "%s\n", strerror(errno));
+        (void) fprintf(stderr, "%s\n", strerror(errno));
         return -1;
     }
     return 0;
@@ -67,24 +74,33 @@ static int start_listen(struct state * s, struct dc_error * err, struct dc_env *
 
 int destroy_state(struct state * s, struct dc_error * err, struct dc_env * env) {
     DC_TRACE(env);
-    int result = 0;
+    int error = 0;
+
+    if (s->started) {
+        int result = send_stop(s, err, env);
+        if (result == -1) {
+            error = 1;
+        }
+    }
 
     if (s->listen_fd)
     {
-        result = close(s->listen_fd) == -1;
+        int result = close(s->listen_fd) == -1;
         if (result == -1)
         {
-            fprintf(stderr, "%s\n", strerror(errno));
+            (void) fprintf(stderr, "%s\n", strerror(errno));
+            error = 1;
         }
     }
 
     for (int i = 0; i < s->num_conns; i++) {
-        result = close(s->accepted_fds[i]) == -1;
+        int result = close(s->accepted_fds[i]) == -1;
         if (result == -1)
         {
-            fprintf(stderr, "%s\n", strerror(errno));
+            (void) fprintf(stderr, "%s\n", strerror(errno));
+            error = 1;
         }
     }
 
-    return result;
+    return error;
 }

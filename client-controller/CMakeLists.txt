@@ -14,11 +14,13 @@ set(SOURCE_LIST
         ${SOURCE_DIR}/state.c
         ${SOURCE_DIR}/util.c
         ${SOURCE_DIR}/handle.c
+        ${SOURCE_DIR}/connection.c
         )
 set(HEADER_LIST
-        ${INCLUDE_DIR}/state.c
+        ${INCLUDE_DIR}/state.h
         ${INCLUDE_DIR}/util.h
         ${INCLUDE_DIR}/handle.h
+        ${INCLUDE_DIR}/connection.h
         )
 
 set(SANITIZE TRUE)

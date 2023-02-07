@@ -2,6 +2,18 @@
 #define CLIENT_CONTROLLER_UTIL_H
 
 #include <netinet/in.h>
+#include <stdbool.h>
+
+/**
+ * set_sock_blocking
+ * <p>
+ * sets the blocking mode of a socket.
+ * </p>
+ * @param fd file descriptor of the socket.
+ * @param blocking whether the socket should block or not.
+ * @return 0 on success. On failure, -1 and set errno.
+ */
+int set_sock_blocking(int fd, bool blocking);
 
 /**
  * TCP_socket

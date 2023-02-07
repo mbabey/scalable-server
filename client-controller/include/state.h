@@ -5,6 +5,8 @@
 #include <dc_env/env.h>
 #include <dc_error/error.h>
 
+#define MAX_CONNS 500
+
 /**
  * state
  * <p>
@@ -15,14 +17,17 @@ struct state {
     in_port_t listen_port;
     struct sockaddr_in listen_addr;
     int listen_fd;
-    int *accepted_fds;
+    int accepted_fds[MAX_CONNS];
     int num_conns;
+    bool started;
+    int wait_period_sec;
+    bool quick_exit;
 };
 
 /**
  * init_state
  * <p>
- * initialize the state object and open a TCP socket for listening.
+ * initialize the state object and open a non-blocking TCP socket for listening.
  * </p>
  * @param listen_port the port to listen on.
  * @param s pointer the state object to initialize.
@@ -30,7 +35,7 @@ struct state {
  * @param env pointer to a dc_env struct.
  * @return 0 on success. On failure, -1 and set errno.
  */
-int init_state(const char *listen_port, struct state * s, struct dc_error * err, struct dc_env * env);
+int init_state(int wait_period_sec, const char *listen_port, struct state * s, struct dc_error * err, struct dc_env * env);
 
 /**
  * destroy_state.
