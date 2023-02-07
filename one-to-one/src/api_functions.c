@@ -7,18 +7,18 @@ int initialize_server(struct core_object *co)
 {
     printf("INIT ONE-TO-ONE SERVER\n");
     
-    co->so = setup_state(co->mm);
+    co->so = setup_state(co->mm);q
     if (!co->so)
     {
-        return -1;
+        return ERROR;
     }
     
     if (open_server_for_listen(co->so, &co->listen_addr) == -1)
     {
-        return -1;
+        return ERROR;
     }
     
-    return 0;
+    return RUN_SERVER;
 }
 
 int run_server(struct core_object *co)
