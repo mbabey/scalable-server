@@ -7,13 +7,13 @@ int initialize_server(struct core_object *co)
     DC_TRACE(co->env);
     printf("INIT POLL SERVER\n");
     
-    co->so = setup_state(co->mm);
+    co->so = setup_poll_state(co->mm);
     if (!co->so)
     {
         return ERROR;
     }
     
-    if (open_server_for_listen(co, co->so, &co->listen_addr) == -1)
+    if (open_poll_server_for_listen(co, co->so, &co->listen_addr) == -1)
     {
         return ERROR;
     }
@@ -39,10 +39,7 @@ int close_server(struct core_object *co)
     DC_TRACE(co->env);
     printf("CLOSE POLL SERVER\n");
     
-    if (destroy_state(co, co->so) == -1)
-    {
-        return ERROR;
-    }
+    destroy_poll_state(co, co->so);
     
     return EXIT;
 }

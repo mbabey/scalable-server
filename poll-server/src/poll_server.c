@@ -72,7 +72,7 @@ static int poll_read(struct core_object *co, struct pollfd *fd);
  */
 static int poll_remove_connection(struct core_object *co, struct pollfd *fd);
 
-struct state_object *setup_state(struct memory_manager *mm)
+struct state_object *setup_poll_state(struct memory_manager *mm)
 {
     struct state_object *so;
     
@@ -85,7 +85,7 @@ struct state_object *setup_state(struct memory_manager *mm)
     return so;
 }
 
-int open_server_for_listen(struct core_object *co, struct state_object *so, struct sockaddr_in *listen_addr)
+int open_poll_server_for_listen(struct core_object *co, struct state_object *so, struct sockaddr_in *listen_addr)
 {
     DC_TRACE(co->env);
     int fd;
@@ -239,7 +239,7 @@ static int poll_remove_connection(struct core_object *co, struct pollfd *fd)
     return 0;
 }
 
-void destroy_state(struct core_object *co, struct state_object *so)
+void destroy_poll_state(struct core_object *co, struct state_object *so)
 {
     DC_TRACE(co->env);
     

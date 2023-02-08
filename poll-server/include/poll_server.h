@@ -10,17 +10,17 @@
 #define CONNECTION_QUEUE 10
 
 /**
- * setup_state
+ * setup_poll_state
  * <p>
  * Set up the state object for the one-to-one server. Add it to the memory manager.
  * </p>
  * @param mm the memory manager to which the state object will be added
  * @return the state object, or NULL and set errno on failure
  */
-struct state_object *setup_state(struct memory_manager *mm);
+struct state_object *setup_poll_state(struct memory_manager *mm);
 
 /**
- * open_server_for_listen
+ * open_poll_server_for_listen
  * <p>
  * Create a socket, bind, and begin listening for connections. Fill necessary fields in the
  * core object.
@@ -29,7 +29,7 @@ struct state_object *setup_state(struct memory_manager *mm);
  * @param listen_addr the address on which to listen
  * @return 0 on success, -1 and set errno on failure
  */
-int open_server_for_listen(struct core_object *co, struct state_object *so, struct sockaddr_in *listen_addr);
+int open_poll_server_for_listen(struct core_object *co, struct state_object *so, struct sockaddr_in *listen_addr);
 
 /**
  * run_poll_server
@@ -44,13 +44,13 @@ int open_server_for_listen(struct core_object *co, struct state_object *so, stru
 int run_poll_server(struct core_object *co);
 
 /**
- * destroy_state
+ * destroy_poll_state
  * <p>
  * Close all connections and all open sockets.
  * </p>
  * @param so the state object
  * @return 0 on success, -1 and set errno on failure
  */
-void destroy_state(struct core_object *co, struct state_object *so);
+void destroy_poll_state(struct core_object *co, struct state_object *so);
 
 #endif //SCALABLE_SERVER_POLL_SERVER_H
