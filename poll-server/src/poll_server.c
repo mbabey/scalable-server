@@ -22,6 +22,7 @@ volatile int GOGO_POLL = 1;
  * </p>
  * @param co the core object
  * @param pollfds the pollfd array
+ * @param nfds the number of fds in the array
  * @return 0 on success, -1 and set errno on failure
  */
 static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds);
@@ -34,6 +35,7 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
  * in the log file.
  * </p>
  * @param co the core object
+ * @param so the state object
  * @return the 0 on success, -1 and set errno on failure
  */
 static int poll_accept(struct core_object *co, struct state_object *so, struct pollfd **pollfds);
@@ -45,6 +47,7 @@ static int poll_accept(struct core_object *co, struct state_object *so, struct p
  * Remove all file descriptors in pollfds for which POLLHUP is set.
  * </p>
  * @param co the core object
+ * @param so the state object
  * @param pollfds the pollfds array
  * @return 0 on success, -1 and set errno on failure
  */
@@ -67,10 +70,22 @@ static int poll_read(struct core_object *co, struct pollfd *pollfd);
  * Close a connection and remove the fd from the list of pollfds.
  * </p>
  * @param co the core object
- * @param fd the file descriptor to close and remove
- * @return 0 on success, -1 and set errno on failure
+ * @param so the state object
+ * @param pollfd the pollfd to close and clean
+ * @param conn_index the index of the connection in the array of client_fds and client_addrs
  */
-static int poll_remove_connection(struct core_object *co, struct state_object *so, struct pollfd *fd);
+static void
+poll_remove_connection(struct core_object *co, struct state_object *so, struct pollfd *pollfd, size_t conn_index);
+
+/**
+ * close_fd_report_undefined_error
+ * <p>
+ * Close a file descriptor and report an error which would make the file descriptor undefined.
+ * </p>
+ * @param fd the fd to close
+ * @param err_msg the error message to print
+ */
+static void close_fd_report_undefined_error(int fd, const char *err_msg);
 
 struct state_object *setup_poll_state(struct memory_manager *mm)
 {
@@ -212,7 +227,7 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
             // Client has closed other end of socket.
             // On MacOS, POLLHUP will be set; on Linux, POLLERR will be set.
         {
-            if (poll_remove_connection(co, so, pollfd) == -1)
+            if (poll_remove_connection(co, so, pollfd, fd_num - 1) == -1)
             {
                 return -1;
             }
@@ -250,25 +265,35 @@ static int poll_read(struct core_object *co, struct pollfd *pollfd)
     return 0;
 }
 
-static int poll_remove_connection(struct core_object *co, struct state_object *so, struct pollfd *fd)
+static void poll_remove_connection(struct core_object *co, struct state_object *so, struct pollfd *pollfd, size_t conn_index)
 {
     DC_TRACE(co->env);
     
     // close the fd
-    // remove the
+    close_fd_report_undefined_error(pollfd->fd, "state of client socket is undefined.");
     
-    return 0;
+    // zero the pollfd struct, the fd in the state object, and the client_addr in the state object.
+    memset(pollfd, 0, sizeof(struct pollfd));
+    memset(&so->client_addr[conn_index], 0, sizeof(struct sockaddr_in));
+    so->client_fd[conn_index] = 0;
 }
 
 void destroy_poll_state(struct core_object *co, struct state_object *so)
 {
     DC_TRACE(co->env);
     
-    // NOLINTBEGIN(concurrency-mt-unsafe) : No threads here
-    int status;
+    close_fd_report_undefined_error(so->listen_fd, "state of listen socket is undefined.");
     
-    status = close(so->listen_fd);
-    if (status == -1)
+    for (size_t sfd_num = 0; sfd_num < MAX_CONNECTIONS; ++sfd_num)
+    {
+        close_fd_report_undefined_error(*(so->client_fd + sfd_num), "state of client socket is undefined.");
+    }
+
+}
+
+static void close_fd_report_undefined_error(int fd, const char *err_msg)
+{
+    if (close(fd) == -1)
     {
         switch (errno)
         {
@@ -279,31 +304,10 @@ void destroy_poll_state(struct core_object *co, struct state_object *so)
             }
             default:
             {
-                (void) fprintf(stderr, "Error: %s; state of listen socket is unspecified.\n",
-                               strerror(errno));
+                // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
+                (void) fprintf(stderr, "Error: %s; %s\n", strerror(errno), err_msg);
             }
         }
     }
     
-    for (size_t sfd_num = 0; sfd_num < MAX_CONNECTIONS; ++sfd_num)
-    {
-        status = close(*(so->client_fd + sfd_num));
-        if (status == -1)
-        {
-            switch (errno)
-            {
-                case EBADF: // Not a problem.
-                {
-                    errno = 0;
-                    break;
-                }
-                default:
-                {
-                    (void) fprintf(stderr, "Error: %s; state of client socket #%zu is unspecified.\n",
-                                   strerror(errno), sfd_num);
-                }
-            }
-        }
-    }
-    // NOLINTEND(concurrency-mt-unsafe)
 }
