@@ -17,7 +17,7 @@ int send_start(struct state * s, struct dc_error * err, struct dc_env * env) {
         while ((nwrote = write(s->accepted_fds[i], &net_start, sizeof(start))) == 0);
         if (nwrote == -1)
         {
-            (void) fprintf(stderr, "%s\n", strerror(errno));
+            perror("writing start to clients");
             result = -1;
         }
     }
@@ -36,7 +36,7 @@ int send_stop(struct state * s, struct dc_error * err, struct dc_env * env) {
         while ((nwrote = write(s->accepted_fds[i], &net_stop, sizeof(stop))) == 0);
         if (nwrote == -1)
         {
-            (void) fprintf(stderr, "%s\n", strerror(errno));
+            perror("writing stop to clients");
             result = -1;
         }
     }

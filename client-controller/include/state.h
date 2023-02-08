@@ -21,7 +21,6 @@ struct state {
     int num_conns;
     bool started;
     int wait_period_sec;
-    bool quick_exit;
 };
 
 /**
@@ -29,6 +28,7 @@ struct state {
  * <p>
  * initialize the state object and open a non-blocking TCP socket for listening.
  * </p>
+ * @param wait_period_sec load test length in seconds.
  * @param listen_port the port to listen on.
  * @param s pointer the state object to initialize.
  * @param err pointer to a dc_error struct.

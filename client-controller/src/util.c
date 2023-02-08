@@ -14,14 +14,14 @@ int set_sock_blocking(int fd, bool blocking) {
 
     flags = fcntl(fd, F_GETFL, 0);
     if (flags == -1) {
-        (void) fprintf(stderr, "%s\n", strerror(errno));
+        perror("getting socket flags");
         return -1;
     }
     flags = blocking ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
 
     result = fcntl(fd, F_SETFL, flags);
     if (result == -1) {
-        (void) fprintf(stderr, "%s\n", strerror(errno));
+        perror("setting socket flags");
         return -1;
     }
 
@@ -35,7 +35,7 @@ int TCP_socket(int *dst) {
     sock = socket(PF_INET, SOCK_STREAM, 0);
     if(sock == -1)
     {
-        (void) fprintf(stderr, "%s\n", strerror(errno));
+        perror("creating socket");
         return -1;
     }
 
@@ -51,7 +51,7 @@ int init_addr(struct sockaddr_in *dst, in_port_t port) {
     (*dst).sin_addr.s_addr = INADDR_ANY;
     if((*dst).sin_addr.s_addr ==  (in_addr_t)-1)
     {
-        (void) fprintf(stderr, "%s", strerror(errno)); // TODO: does address failure actually set errno?
+        perror("constructing address"); // TODO: does address failure actually set errno?
         return -1;
     }
 
@@ -95,7 +95,7 @@ in_port_t parse_port(const char *buff, int radix)
 
     if(msg)
     {
-        (void) fprintf(stdout, "parsing port: %s\n", msg);
+        (void) fprintf(stderr, "parsing port: %s\n", msg);
         port = (in_port_t)0;
     }
     else

@@ -68,12 +68,13 @@ static void set_signal_handling(struct sigaction *sa);
 static void signal_handler(int sig);
 
 static volatile sig_atomic_t sig_quit; // SIGINT flag
+enum states {ERROR = -1, SUCCESS = 0, WAIT = 1};
 
 int handle(struct state * s, struct dc_error * err, struct dc_env * env) {
     DC_TRACE(env);
 
     bool exit;
-    int result;
+    enum states result;
     struct pollfd fds[2];
     int timeout_msecs;
     struct sigaction sa;
@@ -90,31 +91,27 @@ int handle(struct state * s, struct dc_error * err, struct dc_env * env) {
     while(!exit && !sig_quit)
     {
         result = poll(fds, 2, timeout_msecs);
-        if (result > 0)
+        if (result == ERROR && errno != EINTR) // poll error (ignore interrupt error)
         {
-            if (fds[0].revents && POLLIN) // listen_fd readable
-            {
-                result = handle_accept(&fds[0], s, err, env);
-                if (result == -1)
-                {
-                    exit = true;
-                }
-            } else if (fds[1].revents && POLLIN) // stdin readable
-            {
-                result = handle_stdin(&fds[1], s, err, env);
-                if (result == 1)
-                {
-                    result = 0; // considered a success
-                    exit = true;
-                    wait_duration(s, err, env);
-                } else if (result == -1)
-                {
-                    exit = true;
-                }
-            }
-        } else if (result == -1) // poll error
-        {
+            perror("polling listening socket and stdin");
             exit = true;
+        }
+        if (fds[0].revents && POLLIN) // listen_fd readable
+        {
+            result = handle_accept(&fds[0], s, err, env);
+            exit = result == ERROR;
+        }
+        if (fds[1].revents && POLLIN) // stdin readable
+        {
+            result = handle_stdin(&fds[1], s, err, env);
+            if (result == WAIT)
+            {
+                wait_duration(s, err, env);
+                result = SUCCESS; // considered a success
+                exit = true;
+            } else if (result == ERROR) {
+                exit = true;
+            }
         }
     }
 
@@ -133,7 +130,7 @@ static int handle_accept(struct pollfd *pfd, struct state * s, struct dc_error *
     fd = accept(s->listen_fd, (struct sockaddr *)&accept_addr, &accept_addr_len);
     if (fd == -1)
     {
-        (void) fprintf(stderr, "%s\n", strerror(errno));
+        perror("accepting client connection");
         return -1;
     }
 
@@ -160,7 +157,7 @@ static int handle_stdin(struct pollfd *pfd, struct state * s, struct dc_error * 
     nread = read(STDIN_FILENO, &buff, LINE_MAX);
     if (nread == -1)
     {
-        (void) fprintf(stderr, "%s", strerror(errno));
+        perror("reading stdin");
         return -1;
     }
 
@@ -199,7 +196,7 @@ static void set_signal_handling(struct sigaction *sa)
 
     if(result == -1)
     {
-        (void) fprintf(stderr, "%s\n", strerror(errno));
+        perror("sigaction");
     }
 }
 

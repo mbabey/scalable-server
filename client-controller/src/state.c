@@ -60,13 +60,13 @@ static int start_listen(struct state * s, struct dc_error * err, struct dc_env *
     setsockopt(s->listen_fd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
     if(bind(s->listen_fd, (struct sockaddr *)&s->listen_addr, sizeof(struct sockaddr_in)) == -1)
     {
-        (void) fprintf(stderr, "%s\n", strerror(errno));
+        perror("binding listen socket");
         return -1;
     }
 
     if(listen(s->listen_fd, BACKLOG) == -1)
     {
-        (void) fprintf(stderr, "%s\n", strerror(errno));
+        perror("listening on socket");
         return -1;
     }
     return 0;
@@ -83,21 +83,18 @@ int destroy_state(struct state * s, struct dc_error * err, struct dc_env * env) 
         }
     }
 
-    if (s->listen_fd)
-    {
+    if (s->listen_fd) {
         int result = close(s->listen_fd) == -1;
-        if (result == -1)
-        {
-            (void) fprintf(stderr, "%s\n", strerror(errno));
+        if (result == -1) {
+            perror("closing listening socket");
             error = 1;
         }
     }
 
     for (int i = 0; i < s->num_conns; i++) {
         int result = close(s->accepted_fds[i]) == -1;
-        if (result == -1)
-        {
-            (void) fprintf(stderr, "%s\n", strerror(errno));
+        if (result == -1) {
+            perror("closing client connection");
             error = 1;
         }
     }
