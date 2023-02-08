@@ -36,7 +36,7 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
  * @param co the core object
  * @return the 0 on success, -1 and set errno on failure
  */
-static int poll_accept(struct core_object *co, struct state_object *so);
+static int poll_accept(struct core_object *co, struct state_object *so, struct pollfd **pollfds);
 
 /**
  * poll_comm
@@ -155,7 +155,7 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
         // If action on the listen socket.
         if ((*pollfds).revents == POLLIN && co->so->num_connections < MAX_CONNECTIONS)
         {
-            if (poll_accept(co, co->so) == -1)
+            if (poll_accept(co, co->so, &pollfds) == -1)
             {
                 return -1;
             }
@@ -171,7 +171,7 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
     return 0;
 }
 
-static int poll_accept(struct core_object *co, struct state_object *so)
+static int poll_accept(struct core_object *co, struct state_object *so, struct pollfd **pollfds)
 {
     DC_TRACE(co->env);
     int       new_cfd;
@@ -188,6 +188,8 @@ static int poll_accept(struct core_object *co, struct state_object *so)
     }
     
     so->client_fd[conn_index] = new_cfd; // Only save in array if valid.
+    pollfds[conn_index + 1]->fd = new_cfd; // Plus one because listen_fd.
+    ++so->num_connections;
     
     return 0;
 }
@@ -251,6 +253,7 @@ static int poll_read(struct core_object *co, struct pollfd *pollfd)
 static int poll_remove_connection(struct core_object *co, struct state_object *so, struct pollfd *fd)
 {
     DC_TRACE(co->env);
+    
     // close the fd
     // remove the
     
