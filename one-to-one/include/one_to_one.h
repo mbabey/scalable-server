@@ -29,7 +29,7 @@ struct state_object *setup_state(struct memory_manager *mm);
  * @param listen_addr the address on which to listen
  * @return 0 on success, -1 and set errno on failure
  */
-int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_addr);
+int open_server_for_listen(struct core_object *co, struct state_object *so, struct sockaddr_in *listen_addr);
 
 /**
  * destroy_state

@@ -8,7 +8,7 @@
 struct state_object {
     int listen_fd;
     int client_fd[MAX_CONNECTIONS];
-    struct sockaddr_in *client_addr[MAX_CONNECTIONS];
+    struct sockaddr_in client_addr[MAX_CONNECTIONS];
     size_t num_connections;
 };
 

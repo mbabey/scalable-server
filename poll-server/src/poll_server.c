@@ -7,6 +7,7 @@
 #include <sys/socket.h> // back compatability
 #include <sys/types.h>  // back compatability
 #include <unistd.h>
+#include <dc_env/env.h>
 
 /**
  * Whether the poll loop should be running.
@@ -35,7 +36,7 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
  * @param co the core object
  * @return the 0 on success, -1 and set errno on failure
  */
-static int poll_accept(struct core_object *co);
+static int poll_accept(struct core_object *co, struct state_object *so);
 
 /**
  * poll_comm
@@ -63,10 +64,11 @@ static int poll_read(struct core_object *co, struct pollfd *fd);
 /**
  * poll_remove_connection
  * <p>
+ * Close a connection and remove the fd from the list of pollfds.
  * </p>
- * @param co
- * @param fd
- * @return
+ * @param co the core object
+ * @param fd the file descriptor to close and remove
+ * @return 0 on success, -1 and set errno on failure
  */
 static int poll_remove_connection(struct core_object *co, struct pollfd *fd);
 
@@ -83,8 +85,9 @@ struct state_object *setup_state(struct memory_manager *mm)
     return so;
 }
 
-int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_addr)
+int open_server_for_listen(struct core_object *co, struct state_object *so, struct sockaddr_in *listen_addr)
 {
+    DC_TRACE(co->env);
     int fd;
     
     fd = socket(PF_INET, SOCK_STREAM, 0);
@@ -114,18 +117,21 @@ int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_a
 
 int run_poll_server(struct core_object *co)
 {
+    DC_TRACE(co->env);
     struct pollfd pollfds[MAX_CONNECTIONS + 1]; // +1 for the listen socket.
     struct pollfd listen_pollfd;
+    size_t        pollfds_len;
     
     // Set up the listen socket pollfd
     listen_pollfd.fd     = co->so->listen_fd;
     listen_pollfd.events = POLLIN;
+    pollfds_len = sizeof(pollfds) / sizeof(*pollfds);
     
-    memset(pollfds, 0, sizeof(pollfds));
+    memset(pollfds, 0, pollfds_len);
     
     pollfds[0] = listen_pollfd;
     
-    if (execute_poll(co, pollfds, sizeof(pollfds)) == -1)
+    if (execute_poll(co, pollfds, pollfds_len) == -1)
     {
         return -1;
     }
@@ -135,6 +141,7 @@ int run_poll_server(struct core_object *co)
 
 static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds)
 {
+    DC_TRACE(co->env);
     int poll_status;
     
     while (GOGO_POLL) // TODO(max): setup signal handler
@@ -148,7 +155,7 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
         // If action on the listen socket.
         if ((*pollfds).revents == POLLIN && co->so->num_connections < MAX_CONNECTIONS)
         {
-            if (poll_accept(co) == -1)
+            if (poll_accept(co, co->so) == -1)
             {
                 return -1;
             }
@@ -161,9 +168,33 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
     return 0;
 }
 
-static int poll_accept(struct core_object *co)
+static int poll_accept(struct core_object *co, struct state_object *so)
 {
+    DC_TRACE(co->env);
+    int       new_cfd;
+    size_t    conn_index;
+    socklen_t sockaddr_size;
     
+    conn_index    = so->num_connections;
+    sockaddr_size = sizeof(struct sockaddr_in);
+    
+    new_cfd = accept(so->listen_fd, (struct sockaddr *) &so->client_addr[conn_index], &sockaddr_size);
+    if (new_cfd == -1)
+    {
+        switch (errno)
+        {
+            case EINTR:
+            {
+                return 0;
+            }
+            default:
+            {
+                return -1;
+            }
+        }
+    }
+    
+    so->client_fd[conn_index] = new_cfd; // Only save in array if valid.
     
     return 0;
 }
@@ -200,12 +231,18 @@ static int poll_read(struct core_object *co, struct pollfd *fd)
     return 0;
 }
 
+static int poll_remove_connection(struct core_object *co, struct pollfd *fd)
+{
+    
+    return 0;
+}
+
 void destroy_state(struct state_object *so)
 {
     // NOLINTBEGIN(concurrency-mt-unsafe) : No threads here
     int status;
     
-    status        = close(so->listen_fd);
+    status = close(so->listen_fd);
     if (status == -1)
     {
         switch (errno)
