@@ -56,10 +56,10 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
  * Read from a file descriptor. Log the results in the log file.
  * </p>
  * @param co the core object // TODO(max): this may be FILE *?
- * @param fd the file descriptor
+ * @param pollfd the file descriptor
  * @return 0 on success, -1 on failure and set errno
  */
-static int poll_read(struct core_object *co, struct state_object *so, struct pollfd *fd);
+static int poll_read(struct core_object *co, struct pollfd *pollfd);
 
 /**
  * poll_remove_connection
@@ -202,11 +202,13 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
         pollfd = *(pollfds + fd_num);
         if (pollfd->revents == POLLIN)
         {
-            if (poll_read(co, so, pollfd) == -1)
+            if (poll_read(co, pollfd) == -1)
             {
                 return -1;
             }
-        } else if (pollfd->revents == POLLHUP)
+        } else if ((pollfd->revents == POLLHUP) || (pollfd->revents == POLLERR))
+            // Client has closed other end of socket.
+            // On MacOS, POLLHUP will be set; on Linux, POLLERR will be set.
         {
             if (poll_remove_connection(co, so, pollfd) == -1)
             {
@@ -218,7 +220,7 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
     return 0;
 }
 
-static int poll_read(struct core_object *co, struct state_object *so, struct pollfd *pollfd)
+static int poll_read(struct core_object *co, struct pollfd *pollfd)
 {
     DC_TRACE(co->env);
     ssize_t bytes;
@@ -249,6 +251,8 @@ static int poll_read(struct core_object *co, struct state_object *so, struct pol
 static int poll_remove_connection(struct core_object *co, struct state_object *so, struct pollfd *fd)
 {
     DC_TRACE(co->env);
+    // close the fd
+    // remove the
     
     return 0;
 }
