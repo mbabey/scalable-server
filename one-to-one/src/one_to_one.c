@@ -19,7 +19,7 @@ struct state_object *setup_state(struct memory_manager *mm)
     return so;
 }
 
-int open_server_for_listen(struct core_object *co, struct state_object *so, struct sockaddr_in *listen_addr)
+int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_addr)
 {
     int fd;
     

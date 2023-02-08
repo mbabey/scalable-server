@@ -51,6 +51,6 @@ int run_poll_server(struct core_object *co);
  * @param so the state object
  * @return 0 on success, -1 and set errno on failure
  */
-void destroy_state(struct state_object *so);
+void destroy_state(struct core_object *co, struct state_object *so);
 
 #endif //SCALABLE_SERVER_POLL_SERVER_H

@@ -201,6 +201,7 @@ static int poll_accept(struct core_object *co, struct state_object *so)
 
 static int poll_comm(struct core_object *co, struct pollfd **pollfds)
 {
+    DC_TRACE(co->env);
     struct pollfd *fd;
     
     for (size_t fd_num = 1; fd_num <= co->so->num_connections; ++fd_num)
@@ -226,19 +227,22 @@ static int poll_comm(struct core_object *co, struct pollfd **pollfds)
 
 static int poll_read(struct core_object *co, struct pollfd *fd)
 {
-    
+    DC_TRACE(co->env);
     
     return 0;
 }
 
 static int poll_remove_connection(struct core_object *co, struct pollfd *fd)
 {
+    DC_TRACE(co->env);
     
     return 0;
 }
 
-void destroy_state(struct state_object *so)
+void destroy_state(struct core_object *co, struct state_object *so)
 {
+    DC_TRACE(co->env);
+    
     // NOLINTBEGIN(concurrency-mt-unsafe) : No threads here
     int status;
     

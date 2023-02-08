@@ -39,7 +39,7 @@ int close_server(struct core_object *co)
     DC_TRACE(co->env);
     printf("CLOSE POLL SERVER\n");
     
-    if (destroy_state(co->so) == -1)
+    if (destroy_state(co, co->so) == -1)
     {
         return ERROR;
     }
