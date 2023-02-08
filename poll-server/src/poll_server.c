@@ -48,7 +48,7 @@ static int poll_accept(struct core_object *co, struct state_object *so);
  * @param pollfds the pollfds array
  * @return 0 on success, -1 and set errno on failure
  */
-static int poll_comm(struct core_object *co, struct pollfd **pollfds);
+static int poll_comm(struct core_object *co, struct state_object *so, struct pollfd **pollfds);
 
 /**
  * poll_read
@@ -59,7 +59,7 @@ static int poll_comm(struct core_object *co, struct pollfd **pollfds);
  * @param fd the file descriptor
  * @return 0 on success, -1 on failure and set errno
  */
-static int poll_read(struct core_object *co, struct pollfd *fd);
+static int poll_read(struct core_object *co, struct state_object *so, struct pollfd *fd);
 
 /**
  * poll_remove_connection
@@ -70,7 +70,7 @@ static int poll_read(struct core_object *co, struct pollfd *fd);
  * @param fd the file descriptor to close and remove
  * @return 0 on success, -1 and set errno on failure
  */
-static int poll_remove_connection(struct core_object *co, struct pollfd *fd);
+static int poll_remove_connection(struct core_object *co, struct state_object *so, struct pollfd *fd);
 
 struct state_object *setup_poll_state(struct memory_manager *mm)
 {
@@ -161,7 +161,10 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
             }
         } else
         {
-            poll_comm(co, &pollfds);
+            if (poll_comm(co, co->so, &pollfds) == -1)
+            {
+                return -1;
+            }
         }
     }
     
@@ -181,17 +184,7 @@ static int poll_accept(struct core_object *co, struct state_object *so)
     new_cfd = accept(so->listen_fd, (struct sockaddr *) &so->client_addr[conn_index], &sockaddr_size);
     if (new_cfd == -1)
     {
-        switch (errno)
-        {
-            case EINTR:
-            {
-                return 0;
-            }
-            default:
-            {
-                return -1;
-            }
-        }
+        return -1;
     }
     
     so->client_fd[conn_index] = new_cfd; // Only save in array if valid.
@@ -199,23 +192,23 @@ static int poll_accept(struct core_object *co, struct state_object *so)
     return 0;
 }
 
-static int poll_comm(struct core_object *co, struct pollfd **pollfds)
+static int poll_comm(struct core_object *co, struct state_object *so, struct pollfd **pollfds)
 {
     DC_TRACE(co->env);
-    struct pollfd *fd;
+    struct pollfd *pollfd;
     
     for (size_t fd_num = 1; fd_num <= co->so->num_connections; ++fd_num)
     {
-        fd = *(pollfds + fd_num);
-        if (fd->revents == POLLIN)
+        pollfd = *(pollfds + fd_num);
+        if (pollfd->revents == POLLIN)
         {
-            if (poll_read(co, fd) == -1)
+            if (poll_read(co, so, pollfd) == -1)
             {
                 return -1;
             }
-        } else if (fd->revents == POLLHUP)
+        } else if (pollfd->revents == POLLHUP)
         {
-            if (poll_remove_connection(co, fd) == -1)
+            if (poll_remove_connection(co, so, pollfd) == -1)
             {
                 return -1;
             }
@@ -225,14 +218,35 @@ static int poll_comm(struct core_object *co, struct pollfd **pollfds)
     return 0;
 }
 
-static int poll_read(struct core_object *co, struct pollfd *fd)
+static int poll_read(struct core_object *co, struct state_object *so, struct pollfd *pollfd)
 {
     DC_TRACE(co->env);
+    ssize_t bytes;
+    char buffer[BUFSIZ * 16];
+    
+    bytes = read(pollfd->fd, buffer, sizeof(buffer));
+    switch (bytes)
+    {
+        case -1:
+        {
+            // log the error message
+            return -1;
+        }
+        case 0:
+        {
+            // log connection closed
+            break;
+        }
+        default:
+        {
+            // log number of bytes read
+        }
+    }
     
     return 0;
 }
 
-static int poll_remove_connection(struct core_object *co, struct pollfd *fd)
+static int poll_remove_connection(struct core_object *co, struct state_object *so, struct pollfd *fd)
 {
     DC_TRACE(co->env);
     
