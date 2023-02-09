@@ -15,12 +15,16 @@ set(SOURCE_LIST
         ${SOURCE_DIR}/util.c
         ${SOURCE_DIR}/thread.c
         ${SOURCE_DIR}/run.c
+        ${SOURCE_DIR}/thread.c
+        ${SOURCE_DIR}/log.c
         )
 set(HEADER_LIST
         ${INCLUDE_DIR}/state.h
         ${INCLUDE_DIR}/util.h
         ${INCLUDE_DIR}/thread.h
         ${INCLUDE_DIR}/run.h
+        ${SOURCE_DIR}/thread.h
+        ${SOURCE_DIR}/log.h
         )
 
 set(SANITIZE TRUE)
@@ -154,6 +158,7 @@ find_library(LIBDC_FSM dc_fsm REQUIRED)
 find_library(LIB_CONFIG config REQUIRED)
 find_library(LIBDC_APPLICATION dc_application REQUIRED)
 find_library(MEM_MANAGER mem_manager REQUIRED)
+find_library(PTHREAD pthread REQUIRED)
 
 target_link_libraries(client PUBLIC ${LIBDC_ERROR})
 target_link_libraries(client PUBLIC ${LIBDC_ENV})
@@ -165,3 +170,4 @@ target_link_libraries(client PUBLIC ${LIBDC_FSM})
 target_link_libraries(client PUBLIC ${LIB_CONFIG})
 target_link_libraries(client PUBLIC ${LIBDC_APPLICATION})
 target_link_libraries(client PUBLIC ${MEM_MANAGER})
+target_link_libraries(client PUBLIC ${PTHREAD})
