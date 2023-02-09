@@ -48,6 +48,24 @@ int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_a
     return 0;
 }
 
+int run_one_to_one (struct state_object *so){
+    struct sockaddr addr;
+    socklen_t len;
+    int fd = accept(so->listen_fd, &addr, &len);
+
+    if (fd == -1) {
+        return -1;
+    }
+    char buf[1024]; //TODO find out how actually client and server communicate -> in other words agree on the protocol
+    while(read(fd, &buf, sizeof (buf)) != -1){
+        printf("The message was received:\n %.*s\n", sizeof(buf), buf);
+    }
+
+
+    return 0;
+}
+
+
 int destroy_state(struct state_object *so)
 {
     int status;

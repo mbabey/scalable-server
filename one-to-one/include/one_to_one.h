@@ -41,4 +41,13 @@ int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_a
  */
 int destroy_state(struct state_object *so);
 
+/**
+ * run_one_to_one
+ * <p>
+ * Run the server
+ * </p>
+ * @param so the state object
+ * @return 0 on success, -1 and set errno on failure
+ */
+int run_one_to_one(struct state_object *so);
 #endif //ONE_TO_ONE_ONE_TO_ONE_H
