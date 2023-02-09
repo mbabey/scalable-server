@@ -29,11 +29,7 @@ int init_state(int wait_period_sec, const char *listen_port, struct state * s, s
 
     s->wait_period_sec = wait_period_sec;
 
-    s->listen_port = parse_port(listen_port, 10);
-    if (s->listen_port == (in_port_t)0)
-    {
-        return -1;
-    }
+    if (parse_port(& s->listen_port, listen_port, 10) == -1) return -1;
 
     return start_listen(s, err, env);
 }
@@ -42,19 +38,11 @@ static int start_listen(struct state * s, struct dc_error * err, struct dc_env *
     DC_TRACE(env);
     int option;
 
-    if(TCP_socket(&s->listen_fd) == -1)
-    {
-        return -1;
-    }
+    if (init_addr(&s->listen_addr, s->listen_port) == -1) return -1;
 
-    if(set_sock_blocking(s->listen_fd, true) == -1) {
-        return -1;
-    }
+    if(TCP_socket(&s->listen_fd) == -1) return -1;
 
-    if (init_addr(&s->listen_addr, s->listen_port) == -1)
-    {
-        return -1;
-    }
+    if(set_sock_blocking(s->listen_fd, true) == -1) return -1;
 
     option = 1;
     setsockopt(s->listen_fd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
@@ -77,17 +65,14 @@ int destroy_state(struct state * s, struct dc_error * err, struct dc_env * env) 
     int error = 0;
 
     if (s->started) {
-        int result = send_stop(s, err, env);
-        if (result == -1) {
-            error = 1;
-        }
+        error = send_stop(s, err, env);
     }
 
     if (s->listen_fd) {
         int result = close(s->listen_fd) == -1;
         if (result == -1) {
             perror("closing listening socket");
-            error = 1;
+            error = -1;
         }
     }
 
@@ -95,7 +80,7 @@ int destroy_state(struct state * s, struct dc_error * err, struct dc_env * env) 
         int result = close(s->accepted_fds[i]) == -1;
         if (result == -1) {
             perror("closing client connection");
-            error = 1;
+            error = -1;
         }
     }
 

@@ -1,5 +1,6 @@
 #include "util.h"
 
+#include <arpa/inet.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdint.h>
@@ -7,6 +8,31 @@
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
+
+int init_connection(int sock_fd, struct sockaddr_in *addr) {
+    int result;
+
+    result = connect(sock_fd, (struct sockaddr *)addr, sizeof(struct sockaddr_in));
+    if(result == -1) {
+        perror("connect");
+        return -1;
+    }
+
+    return 0;
+}
+
+int open_file(FILE **dst, const char * file_name, const char * mode) {
+    FILE *file;
+
+    file = fopen(file_name, mode);
+    if (file == NULL) {
+        perror("open file");
+        return -1;
+    }
+
+    *dst = file;
+    return 0;
+}
 
 int set_sock_blocking(int fd, bool blocking) {
     int result;
@@ -42,13 +68,13 @@ int TCP_socket(int *dst) {
     return 0;
 }
 
-int init_addr(struct sockaddr_in *dst, in_port_t port) {
+int init_addr(struct sockaddr_in *dst, const char *ip, in_port_t port) {
     (*dst).sin_family = AF_INET;
     (*dst).sin_port = htons(port);
-    (*dst).sin_addr.s_addr = INADDR_ANY;
+    (*dst).sin_addr.s_addr = inet_addr(ip);
     if((*dst).sin_addr.s_addr ==  (in_addr_t)-1)
     {
-        perror("constructing address"); // TODO: does address failure actually set errno?
+        perror("constructing address");
         return -1;
     }
 

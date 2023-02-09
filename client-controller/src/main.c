@@ -180,7 +180,7 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
     if (init_result != -1)
     {
         (void) fprintf(stdout, "Waiting for clients, type \"start\" to begin test\nDuration: %d seconds\n"
-                       ,s.wait_period_sec);
+                       , s.wait_period_sec);
         handle_result = handle(&s, err, env);
         destroy_result = destroy_state(&s, err, env);
     }

@@ -1,3 +1,5 @@
+#include <state.h>
+
 #include <dc_env/env.h>
 #include <dc_error/error.h>
 #include <dc_application/application.h>
@@ -5,12 +7,11 @@
 #include <dc_c/dc_stdlib.h>
 #include <dc_c/dc_string.h>
 #include <mem_manager/manager.h>
-
 #include <getopt.h>
 #include <dlfcn.h>
 
-#define LOG_FILE_NAME "log.csv"
-#define LOG_OPEN_MODE "w" // Mode is set to truncate for independent results from each experiment.
+#define DEFAULT_CONT_PORT "5000"
+#define DEFAULT_SERVER_PORT "5000"
 
 /**
  * application_settings
@@ -21,6 +22,11 @@
 struct application_settings
 {
     struct dc_opt_settings   opts;
+    struct dc_setting_string *server_ip;
+    struct dc_setting_string *controller_ip;
+    struct dc_setting_string *server_port;
+    struct dc_setting_string *controller_port;
+    struct dc_setting_string *data;
 };
 
 /**
@@ -79,7 +85,7 @@ int main(int argc, char *argv[])
     struct dc_error            *err;
     struct dc_application_info *info;
     tracer = NULL;
-    //tracer = trace_reporter;
+    tracer = trace_reporter;
     err    = dc_error_create(false);
     env    = dc_env_create(err, false, tracer);
     info   = dc_application_info_create(env, err, "client");
@@ -105,25 +111,80 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
     }
 
     settings->opts.parent.config_path = dc_setting_path_create(env, err);
+    settings->server_ip               = dc_setting_string_create(env, err);
+    settings->controller_ip           = dc_setting_string_create(env, err);
+    settings->server_port             = dc_setting_string_create(env, err);
+    settings->controller_port         = dc_setting_string_create(env, err);
+    settings->data                    = dc_setting_string_create(env, err);
 
     struct options opts[] = {
             {(struct dc_setting *) settings->opts.parent.config_path,
                     dc_options_set_path,
                     "config",
                     required_argument,
-                    'c',
+                    'z', // set to z for controller_ip
                     "CONFIG",
                     dc_string_from_string,
                     NULL,
                     dc_string_from_config,
                     NULL},
+            {(struct dc_setting *) settings->server_ip,
+                    dc_options_set_string,
+                    "server_ip",
+                    required_argument,
+                    's',
+                    "SERVER_IP",
+                    dc_string_from_string,
+                    "server_ip",
+                    dc_string_from_config,
+                    NULL},
+            {(struct dc_setting *) settings->controller_ip,
+                    dc_options_set_string,
+                    "controller_ip",
+                    required_argument,
+                    'c',
+                    "CONTROLLER_IP",
+                    dc_string_from_string,
+                    "controller_ip",
+                    dc_string_from_config,
+                    NULL},
+            {(struct dc_setting *) settings->server_port,
+                    dc_options_set_string,
+                    "server_port",
+                    required_argument,
+                    'p',
+                    "SERVER_PORT",
+                    dc_string_from_string,
+                    "server_port",
+                    dc_string_from_config,
+                    DEFAULT_SERVER_PORT},
+            {(struct dc_setting *) settings->controller_port,
+                    dc_options_set_string,
+                    "controller_port",
+                    required_argument,
+                    'P',
+                    "CONTROLLER_PORT",
+                    dc_string_from_string,
+                    "controller_port",
+                    dc_string_from_config,
+                    DEFAULT_CONT_PORT},
+            {(struct dc_setting *) settings->data,
+                    dc_options_set_string,
+                    "data",
+                    required_argument,
+                    'd',
+                    "DATA",
+                    dc_string_from_string,
+                    "data",
+                    dc_string_from_config,
+                    NULL}
     };
 
     settings->opts.opts_count = (sizeof(opts) / sizeof(struct options)) + 1;
     settings->opts.opts_size  = sizeof(struct options);
     settings->opts.opts       = dc_calloc(env, err, settings->opts.opts_count, settings->opts.opts_size);
     dc_memcpy(env, settings->opts.opts, opts, sizeof(opts));
-    settings->opts.flags      = "";
+    settings->opts.flags      = "s:c:p:P:d:";
     settings->opts.env_prefix = "CLIENT_";
 
     return (struct dc_application_settings *) settings;
@@ -132,12 +193,30 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
 static int run(const struct dc_env *env, struct dc_error *err, struct dc_application_settings *settings)
 {
     DC_TRACE(env);
+    int result;
+    int init_result = 0; // explicitly set to 0 for || operation
+    int handle_result = 0;
+    int destroy_result = 0;
     struct application_settings *app_settings;
+    struct state s;
+    struct init_state_params params;
 
-    int ret_val = 0;
+    app_settings = (struct application_settings *) settings;
+    params.server_ip = dc_setting_string_get(env, app_settings->server_ip);
+    params.controller_ip = dc_setting_string_get(env, app_settings->controller_ip);
+    params.server_port = dc_setting_string_get(env, app_settings->server_port);
+    params.controller_port = dc_setting_string_get(env, app_settings->controller_port);
+    params.data_file_name = dc_setting_string_get(env, app_settings->data);
 
+    init_result = init_state(&params, &s, err, env);
+    if (init_result != -1)
+    {
+        //handle_result = handle(&s, err, env);
+        destroy_result = destroy_state(&s, err, env);
+    }
+    result = init_result || handle_result || destroy_result;
 
-    return ret_val;
+    return result;
 }
 
 static int destroy_settings(const struct dc_env *env, struct dc_error *err, struct dc_application_settings **psettings)

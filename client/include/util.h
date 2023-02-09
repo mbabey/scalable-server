@@ -1,8 +1,32 @@
-#ifndef CLIENT_CONTROLLER_UTIL_H
-#define CLIENT_CONTROLLER_UTIL_H
+#ifndef CLIENT_UTIL_H
+#define CLIENT_UTIL_H
 
 #include <netinet/in.h>
 #include <stdbool.h>
+#include <stdio.h>
+
+/**
+ * init_connection
+ * <p>
+ * connect to a host.
+ * </p>
+ * @param sock_fd socket to connect with.
+ * @param addr host address.
+ * @return
+ */
+int init_connection(int sock_fd, struct sockaddr_in *addr);
+
+/**
+ * open_file
+ * <p>
+ * open a file with a given mode.
+ * </p>
+ * @param dst where to assign the opened file.
+ * @param file_name the file to open.
+ * @param mode the mode to open the file with.
+ * @return 0 on success. On failure, -1 and set errno.
+ */
+int open_file(FILE **dst, const char * file_name, const char * mode);
 
 /**
  * set_sock_blocking
@@ -30,11 +54,11 @@ int TCP_socket(int *dst);
  * <p>
  * construct a socket address.
  * </p>
- * @param dst where to construct the address.
+ * @param addr where to construct the address.
  * @param port the port to use.
  * @return 0 on success. On failure, -1 and set errno.
  */
-int init_addr(struct sockaddr_in *dst, in_port_t port);
+int init_addr(struct sockaddr_in *addr, const char *ip, in_port_t port);
 
 /**
  * parse_port
@@ -48,4 +72,4 @@ int init_addr(struct sockaddr_in *dst, in_port_t port);
  */
 int parse_port(in_port_t *dst, const char *buff, int radix);
 
-#endif //CLIENT_CONTROLLER_UTIL_H
+#endif //CLIENT_UTIL_H
