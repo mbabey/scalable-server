@@ -1,4 +1,5 @@
 #include "../../api_functions.h"
+#include "../include/objects.h"
 #include "../include/one_to_one.h"
 
 #include <stdio.h>
@@ -21,10 +22,16 @@ int initialize_server(struct core_object *co)
     return RUN_SERVER;
 }
 
-int run_server(struct core_object *co)
-{
+int run_server(struct core_object *co) {
     printf("RUN ONE-TO-ONE SERVER\n");
-    run_one_to_one(co->so); //TODO check return value
+    int fd;
+    do {
+        fd = accept_conn(co->so->listen_fd);
+        if (fd == -1) {
+            return ERROR;
+        }
+    }
+    while (run_one_to_one(fd) == 0);
     
     return CLOSE_SERVER;
 }

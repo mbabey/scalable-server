@@ -46,8 +46,18 @@ int destroy_state(struct state_object *so);
  * <p>
  * Run the server
  * </p>
- * @param so the state object
+ * @param fd as int
  * @return 0 on success, -1 and set errno on failure
  */
-int run_one_to_one(struct state_object *so);
+int run_one_to_one(int fd);
+
+/**
+ * accept_conn
+ * <p>
+ * Accept connection
+ * </p>
+ * @param listen_fd as int
+ * @return int on accepted socket, -1 and set errno on failure
+ */
+int accept_conn(int listen_fd);
 #endif //ONE_TO_ONE_ONE_TO_ONE_H
