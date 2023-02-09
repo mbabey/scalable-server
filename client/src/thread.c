@@ -30,9 +30,9 @@ static int get_processors(int *dst);
  */
 static int create_threads(int n, struct state * s, struct dc_error * err, struct dc_env * env);
 
-static pthread_t * t_ids;
-static int n_threads;
-static int n_processors;
+static pthread_t * t_ids = NULL; // array of thread IDs
+static int n_threads; // number of threads running
+static int n_processors; // number of system processors
 
 int start_threads(struct state * s, struct dc_error * err, struct dc_env * env) {
     DC_TRACE(env);
@@ -59,9 +59,15 @@ static int create_threads(int n, struct state * s, struct dc_error * err, struct
     }
 
     for (int i = 0; i < n; i++) {
+        struct handle_args h_args;
+
         char * data_copy = calloc((strlen(s->data) + 1), sizeof(char));
-        int result = pthread_create(&t_ids[i], NULL, handle, data_copy);
-        if (result == -1) {
+        strcpy(data_copy, s->data);
+
+
+        h_args.data = data_copy;
+        h_args.server_addr = s->server_addr;
+        if(pthread_create(&t_ids[i], NULL, handle, (void *)&h_args) != 0) {
             free(data_copy);
             return -1;
         }
@@ -82,21 +88,25 @@ int stop_threads(struct state * s, struct dc_error * err, struct dc_env * env) {
             ret = -1;
         }
     }
-    free(t_ids);
+    if (t_ids != NULL) {
+        free(t_ids);
+        t_ids = NULL;
+    }
+    n_threads = 0;
 
     return ret;
 }
 
 static int get_processors(int *dst) {
-    int n_processors;
+    int processors;
 
-    n_processors = (int)sysconf(_SC_NPROCESSORS_ONLN);
+    processors = (int)sysconf(_SC_NPROCESSORS_ONLN);
     if (n_processors == -1) {
         perror("sysconf getting processors");
         return -1;
     }
 
-    *dst = n_processors;
+    *dst = processors;
 
     return 0;
 }

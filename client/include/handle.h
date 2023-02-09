@@ -1,6 +1,13 @@
 #ifndef CLIENT_HANDLE_H
 #define CLIENT_HANDLE_H
 
+#include "netinet/in.h"
+
+struct handle_args {
+    struct sockaddr_in server_addr;
+    char * data;
+};
+
 /**
  * handle
  * <>

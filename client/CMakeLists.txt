@@ -17,6 +17,7 @@ set(SOURCE_LIST
         ${SOURCE_DIR}/run.c
         ${SOURCE_DIR}/thread.c
         ${SOURCE_DIR}/log.c
+        ${SOURCE_DIR}/handle.c
         )
 set(HEADER_LIST
         ${INCLUDE_DIR}/state.h
@@ -25,6 +26,7 @@ set(HEADER_LIST
         ${INCLUDE_DIR}/run.h
         ${SOURCE_DIR}/thread.h
         ${SOURCE_DIR}/log.h
+        ${SOURCE_DIR}/handle.h
         )
 
 set(SANITIZE TRUE)

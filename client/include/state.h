@@ -29,7 +29,6 @@ struct state {
     const char* server_ip;
     struct sockaddr_in server_addr;
     // server socket is created and closed in each thread
-    bool threads_running;
     char *data;
     FILE *log_file;
 };

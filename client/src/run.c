@@ -32,7 +32,7 @@ int run_state(struct state * s, struct dc_error * err, struct dc_env * env) {
             perror("polling controller socket");
             exit = true;
         }
-        if (fds[0].revents && POLLIN) // listen_fd readable
+        if (fds[0].revents && POLLIN) // controller_fd readable
         {
             result = handle_controller(&fds[0], s, err, env);
             if (result == END)
@@ -62,7 +62,7 @@ static int handle_controller(struct pollfd *pfd, struct state * s, struct dc_err
         return -1;
     }
 
-    command = htons(command);
+    command = ntohs(command);
     switch(command) {
         case START:
             start_threads(s, err, env);

@@ -3,6 +3,13 @@
 
 #include <state.h>
 
+struct logger {
+    int start_time;
+    int end_time;
+    bool error;
+    const char * err_msg;
+};
+
 /**
  * log info
  * <>

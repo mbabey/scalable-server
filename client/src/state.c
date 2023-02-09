@@ -1,6 +1,7 @@
 #include "../include/state.h"
 
 #include <util.h>
+#include <thread.h>
 
 #include <unistd.h>
 #include <stdio.h>
@@ -115,10 +116,15 @@ static int load_data(char **dst, const char *file_name, const char *mode, struct
 int destroy_state(struct state * s, struct dc_error * err, struct dc_env * env) {
     DC_TRACE(env);
     int result;
+    int ret;
+
+    ret = stop_threads(s, err, env);
 
     if (s->controller_fd) {
-        if ((result = close(s->controller_fd)) == 0) {
+        result = close(s->controller_fd);
+        if (result == 1) {
             perror("closing controller connection");
+            ret = 1;
         }
     }
 
@@ -127,10 +133,12 @@ int destroy_state(struct state * s, struct dc_error * err, struct dc_env * env) 
     }
 
     if (s->log_file) {
-        if ((result = fclose(s->log_file)) == EOF) {
+        result = fclose(s->log_file);
+        if (result == EOF) {
             perror("closing log file");
+            ret = 1;
         }
     }
 
-    return result;
+    return ret;
 }
