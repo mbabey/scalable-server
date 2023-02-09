@@ -5,9 +5,9 @@
 
 int initialize_server(struct core_object *co)
 {
-    printf("INIT ONE-TO-ONE SERVER\n");
+    printf("INIT ONE-TO-ONE SERVER!_\n");
     
-    co->so = setup_state(co->mm);q
+    co->so = setup_state(co->mm);
     if (!co->so)
     {
         return ERROR;
@@ -25,7 +25,7 @@ int run_server(struct core_object *co)
 {
     printf("RUN ONE-TO-ONE SERVER\n");
     
-    return 0;
+    return CLOSE_SERVER;
 }
 
 int close_server(struct core_object *co)
@@ -34,5 +34,5 @@ int close_server(struct core_object *co)
     
     destroy_state(co->so);
     
-    return 0;
+    return EXIT;
 }
