@@ -1,4 +1,5 @@
 #include <state.h>
+#include <run.h>
 
 #include <dc_env/env.h>
 #include <dc_error/error.h>
@@ -85,7 +86,7 @@ int main(int argc, char *argv[])
     struct dc_error            *err;
     struct dc_application_info *info;
     tracer = NULL;
-    tracer = trace_reporter;
+    //tracer = trace_reporter;
     err    = dc_error_create(false);
     env    = dc_env_create(err, false, tracer);
     info   = dc_application_info_create(env, err, "client");
@@ -211,7 +212,7 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
     init_result = init_state(&params, &s, err, env);
     if (init_result != -1)
     {
-        //handle_result = handle(&s, err, env);
+        handle_result = run_state(&s, err, env);
         destroy_result = destroy_state(&s, err, env);
     }
     result = init_result || handle_result || destroy_result;

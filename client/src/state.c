@@ -2,6 +2,7 @@
 
 #include <util.h>
 #include <thread.h>
+#include <log.h>
 
 #include <unistd.h>
 #include <stdio.h>
@@ -51,6 +52,8 @@ int init_state(struct init_state_params * params, struct state * s, struct dc_er
     if (load_data(&s->data, params->data_file_name, DATA_OPEN_MODE, env) == -1) return -1;
 
     if (open_file(&s->log_file, LOG_FILE_NAME, LOG_OPEN_MODE) == -1) return -1;
+
+    if (init_logger(s) == -1) return -1;
 
     return 0;
 }
@@ -132,12 +135,8 @@ int destroy_state(struct state * s, struct dc_error * err, struct dc_env * env) 
         free(s->data);
     }
 
-    if (s->log_file) {
-        result = fclose(s->log_file);
-        if (result == EOF) {
-            perror("closing log file");
-            ret = 1;
-        }
+    if (destroy_logger() == -1) {
+        ret = -1;
     }
 
     return ret;

@@ -10,6 +10,17 @@
 
 enum states {ERROR = -1, SUCCESS = 0, END = 1};
 
+/**
+ * handle_controller
+ * <p>
+ * read a command from the controller and perform the appropriate action.
+ * </p>
+ * @param pfd pollfd to reset revents on.
+ * @param s pointer to the state object.
+ * @param err pointer to the dc_error struct.
+ * @param env pointer to the dc_env struct.
+ * @return 1 if STOP is received, 0 if START is received. -1 and set errno on failure.
+ */
 static int handle_controller(struct pollfd *pfd, struct state * s, struct dc_error * err, struct dc_env * env);
 
 int run_state(struct state * s, struct dc_error * err, struct dc_env * env) {
