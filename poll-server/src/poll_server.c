@@ -8,6 +8,7 @@
 #include <sys/types.h>  // back compatability
 #include <unistd.h>
 #include <dc_env/env.h>
+#include <signal.h>
 
 /**
  * Whether the poll loop should be running.
@@ -26,6 +27,22 @@ volatile int GOGO_POLL = 1;
  * @return 0 on success, -1 and set errno on failure
  */
 static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds);
+
+/**w
+ * setup_sigint_handler
+ * @param sa sigaction struct to fill
+ * @return 0 on success, -1 and set errno on failure
+ */
+static int setup_sigint_handler(struct sigaction *sa);
+
+/**
+ * sigint_handler
+ * <p>
+ * Handler for SIGINT. Set the running loop conditional to 0.
+ * </p>
+ * @param signal the signal received
+ */
+static void sigint_handler(int signal);
 
 /**
  * poll_accept
@@ -158,8 +175,11 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
 {
     DC_TRACE(co->env);
     int poll_status;
+    struct sigaction sig;
     
-    while (GOGO_POLL) // TODO(max): setup signal handler
+    setup_sigint_handler(&sig);
+    
+    while (GOGO_POLL)
     {
         poll_status = poll(pollfds, nfds, 0);
         if (poll_status == -1)
@@ -185,6 +205,25 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
     
     return 0;
 }
+
+static int setup_sigint_handler(struct sigaction *sa)
+{
+    sigemptyset(&sa->sa_mask);
+    sa->sa_flags   = 0;
+    sa->sa_handler = sigint_handler;
+    if (sigaction(SIGINT, sa, 0) == -1)
+    {
+        return -1;
+    }
+    return 0;
+}
+
+// NOLINTBEGIN
+static void sigint_handler(int signal)
+{
+    GOGO_POLL = 0;
+}
+// NOLINTEND
 
 static int poll_accept(struct core_object *co, struct state_object *so, struct pollfd **pollfds)
 {
@@ -227,10 +266,7 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
             // Client has closed other end of socket.
             // On MacOS, POLLHUP will be set; on Linux, POLLERR will be set.
         {
-            if (poll_remove_connection(co, so, pollfd, fd_num - 1) == -1)
-            {
-                return -1;
-            }
+            (poll_remove_connection(co, so, pollfd, fd_num - 1));
         }
     }
     
