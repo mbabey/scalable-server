@@ -186,7 +186,7 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
         poll_status = poll(pollfds, nfds, -1);
         if (poll_status == -1)
         {
-            return -1;
+            return (errno == EINTR) ? 0 : -1;
         }
         
         // If action on the listen socket.
