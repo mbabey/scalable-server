@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <dc_env/env.h>
 #include <signal.h>
+#include <arpa/inet.h>
 
 /**
  * Whether the poll loop should be running.
@@ -55,7 +56,7 @@ static void sigint_handler(int signal);
  * @param so the state object
  * @return the 0 on success, -1 and set errno on failure
  */
-static int poll_accept(struct core_object *co, struct state_object *so, struct pollfd **pollfds);
+static int poll_accept(struct core_object *co, struct state_object *so, struct pollfd *pollfds);
 
 /**
  * poll_comm
@@ -68,7 +69,7 @@ static int poll_accept(struct core_object *co, struct state_object *so, struct p
  * @param pollfds the pollfds array
  * @return 0 on success, -1 and set errno on failure
  */
-static int poll_comm(struct core_object *co, struct state_object *so, struct pollfd **pollfds);
+static int poll_comm(struct core_object *co, struct state_object *so, struct pollfd *pollfds);
 
 /**
  * poll_read
@@ -157,9 +158,10 @@ int run_poll_server(struct core_object *co)
     // Set up the listen socket pollfd
     listen_pollfd.fd     = co->so->listen_fd;
     listen_pollfd.events = POLLIN;
+    listen_pollfd.revents = 0;
     pollfds_len = sizeof(pollfds) / sizeof(*pollfds);
     
-    memset(pollfds, 0, pollfds_len);
+    memset(pollfds, 0, sizeof(pollfds));
     
     pollfds[0] = listen_pollfd;
     
@@ -181,7 +183,7 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
     
     while (GOGO_POLL)
     {
-        poll_status = poll(pollfds, nfds, 0);
+        poll_status = poll(pollfds, nfds, -1);
         if (poll_status == -1)
         {
             return -1;
@@ -190,13 +192,13 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
         // If action on the listen socket.
         if ((*pollfds).revents == POLLIN && co->so->num_connections < MAX_CONNECTIONS)
         {
-            if (poll_accept(co, co->so, &pollfds) == -1)
+            if (poll_accept(co, co->so, pollfds) == -1)
             {
                 return -1;
             }
         } else
         {
-            if (poll_comm(co, co->so, &pollfds) == -1)
+            if (poll_comm(co, co->so, pollfds) == -1)
             {
                 return -1;
             }
@@ -225,7 +227,7 @@ static void sigint_handler(int signal)
 }
 // NOLINTEND
 
-static int poll_accept(struct core_object *co, struct state_object *so, struct pollfd **pollfds)
+static int poll_accept(struct core_object *co, struct state_object *so, struct pollfd *pollfds)
 {
     DC_TRACE(co->env);
     int       new_cfd;
@@ -242,20 +244,23 @@ static int poll_accept(struct core_object *co, struct state_object *so, struct p
     }
     
     so->client_fd[conn_index] = new_cfd; // Only save in array if valid.
-    pollfds[conn_index + 1]->fd = new_cfd; // Plus one because listen_fd.
+    pollfds[conn_index + 1].fd = new_cfd; // Plus one because listen_fd.
+//    pollfds[conn_index + 1].events = POLLIN;
     ++so->num_connections;
+    
+    (void) fprintf(stdout, "Client connected from %s:%d\n", inet_ntoa(so->client_addr[conn_index].sin_addr), ntohs(so->client_addr[conn_index].sin_port));
     
     return 0;
 }
 
-static int poll_comm(struct core_object *co, struct state_object *so, struct pollfd **pollfds)
+static int poll_comm(struct core_object *co, struct state_object *so, struct pollfd *pollfds)
 {
     DC_TRACE(co->env);
     struct pollfd *pollfd;
     
     for (size_t fd_num = 1; fd_num <= co->so->num_connections; ++fd_num)
     {
-        pollfd = *(pollfds + fd_num);
+        pollfd = pollfds + fd_num;
         if (pollfd->revents == POLLIN)
         {
             if (poll_read(co, pollfd) == -1)
@@ -284,17 +289,17 @@ static int poll_read(struct core_object *co, struct pollfd *pollfd)
     {
         case -1:
         {
-            // log the error message
+            (void) fprintf(stdout, "bytes read: %lu | buffer: \"%s\"\n", bytes, buffer);
             return -1;
         }
         case 0:
         {
-            // log connection closed
+            (void) fprintf(stdout, "bytes read: %lu | buffer: \"%s\"\n", bytes, buffer);
             break;
         }
         default:
         {
-            // log number of bytes read
+            (void) fprintf(stdout, "bytes read: %lu | buffer: \"%s\"\n", bytes, buffer);
         }
     }
     

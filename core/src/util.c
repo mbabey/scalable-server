@@ -113,7 +113,7 @@ static int assemble_listen_addr(struct sockaddr_in *listen_addr, const in_port_t
     
     memset(listen_addr, 0, sizeof(struct sockaddr_in));
     
-    listen_addr->sin_port   = htonl(port_num);
+    listen_addr->sin_port   = htons(port_num);
     listen_addr->sin_family = AF_INET;
     switch (inet_pton(AF_INET, ip_addr, &listen_addr->sin_addr.s_addr))
     {

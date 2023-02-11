@@ -4,9 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DEFAULT_PORT_BUT_A_NUMBER 5000
+#define DEFAULT_PORT_BUT_A_NUMBER 5005
 
-int main(void)
+int main(int argc, char **argv)
 {
     int                next_state;
     int                run;
@@ -21,7 +21,7 @@ int main(void)
     err = dc_error_create(true);
     env = dc_env_create(err, false, tracer);
     
-    next_state = setup_core_object(&co, env, err, DEFAULT_PORT_BUT_A_NUMBER, DEFAULT_IP);
+    next_state = setup_core_object(&co, env, err, DEFAULT_PORT_BUT_A_NUMBER, argv[1]);
     if (next_state == -1)
     {
         return EXIT_FAILURE;
@@ -69,5 +69,4 @@ int main(void)
     destroy_core_object(&co);
     
     return next_state;
-    
 }
