@@ -30,11 +30,11 @@ volatile int GOGO_POLL = 1;
 static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds);
 
 /**w
- * setup_sigint_handler
+ * setup_signal_handler
  * @param sa sigaction struct to fill
  * @return 0 on success, -1 and set errno on failure
  */
-static int setup_sigint_handler(struct sigaction *sa);
+static int setup_signal_handler(struct sigaction *sa, int signal);
 
 /**
  * sigint_handler
@@ -177,9 +177,12 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
 {
     DC_TRACE(co->env);
     int poll_status;
-    struct sigaction sig;
+    struct sigaction sigint;
     
-    setup_sigint_handler(&sig);
+    if (setup_signal_handler(&sigint, SIGINT) == -1)
+    {
+        return -1;
+    }
     
     while (GOGO_POLL)
     {
@@ -208,12 +211,12 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
     return 0;
 }
 
-static int setup_sigint_handler(struct sigaction *sa)
+static int setup_signal_handler(struct sigaction *sa, int signal)
 {
     sigemptyset(&sa->sa_mask);
     sa->sa_flags   = 0;
     sa->sa_handler = sigint_handler;
-    if (sigaction(SIGINT, sa, 0) == -1)
+    if (sigaction(signal, sa, 0) == -1)
     {
         return -1;
     }
@@ -245,7 +248,7 @@ static int poll_accept(struct core_object *co, struct state_object *so, struct p
     
     so->client_fd[conn_index] = new_cfd; // Only save in array if valid.
     pollfds[conn_index + 1].fd = new_cfd; // Plus one because listen_fd.
-//    pollfds[conn_index + 1].events = POLLIN;
+    pollfds[conn_index + 1].events = POLLIN;
     ++so->num_connections;
     
     (void) fprintf(stdout, "Client connected from %s:%d\n", inet_ntoa(so->client_addr[conn_index].sin_addr), ntohs(so->client_addr[conn_index].sin_port));
@@ -267,7 +270,7 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
             {
                 return -1;
             }
-        } else if ((pollfd->revents == POLLHUP) || (pollfd->revents == POLLERR))
+        } else if ((pollfd->revents & POLLHUP) || (pollfd->revents & POLLERR))
             // Client has closed other end of socket.
             // On MacOS, POLLHUP will be set; on Linux, POLLERR will be set.
         {
@@ -284,7 +287,9 @@ static int poll_read(struct core_object *co, struct pollfd *pollfd)
     ssize_t bytes;
     char buffer[BUFSIZ * 16];
     
-    bytes = read(pollfd->fd, buffer, sizeof(buffer));
+    memset(buffer, 0, sizeof(buffer));
+    
+    bytes = recv(pollfd->fd, buffer, sizeof(buffer), 0);
     switch (bytes)
     {
         case -1:
@@ -294,13 +299,22 @@ static int poll_read(struct core_object *co, struct pollfd *pollfd)
         }
         case 0:
         {
+            // Connection closed
             (void) fprintf(stdout, "bytes read: %lu | buffer: \"%s\"\n", bytes, buffer);
-            break;
+            return 0;
         }
         default:
         {
             (void) fprintf(stdout, "bytes read: %lu | buffer: \"%s\"\n", bytes, buffer);
         }
+    }
+    
+    uint32_t bytes_network = htonl(bytes);
+    
+    bytes = send(pollfd->fd, &bytes_network, sizeof(bytes_network), 0);
+    if (bytes == -1)
+    {
+        return -1;
     }
     
     return 0;
@@ -317,6 +331,7 @@ static void poll_remove_connection(struct core_object *co, struct state_object *
     memset(pollfd, 0, sizeof(struct pollfd));
     memset(&so->client_addr[conn_index], 0, sizeof(struct sockaddr_in));
     so->client_fd[conn_index] = 0;
+    --so->num_connections;
 }
 
 void destroy_poll_state(struct core_object *co, struct state_object *so)
