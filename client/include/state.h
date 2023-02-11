@@ -1,9 +1,9 @@
 #ifndef SCALABLE_CLIENT_STATE_H
 #define SCALABLE_CLIENT_STATE_H
 
-#include <netinet/in.h>
-#include <dc_error/error.h>
 #include <dc_env/env.h>
+#include <dc_error/error.h>
+#include <netinet/in.h>
 #include <stdio.h>
 
 struct init_state_params {
@@ -30,7 +30,6 @@ struct state {
     struct sockaddr_in server_addr;
     // server socket is created and closed in each thread
     char *data;
-    FILE *log_file;
 };
 
 /**

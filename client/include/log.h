@@ -10,8 +10,8 @@
  * </p>
  */
 struct logger {
-    time_t start_time;
-    time_t end_time;
+    unsigned long start_time;
+    unsigned long end_time;
     uint32_t expected_bytes;
     uint32_t actual_bytes;
     const char * err_msg;
@@ -20,12 +20,11 @@ struct logger {
 /**
  * init_logger
  * <p>
- * initializes the logger mutex and sets the file pointer.
+ * opens the logging file and initializes the logging mutex.
  * </p>
- * @param s pointer to the state object.
  * @return 0 on success. -1 and set errno on failure.
  */
-int init_logger(struct state * s);
+int init_logger(void);
 
 /**
  * destroy_logger

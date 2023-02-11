@@ -1,7 +1,7 @@
 #ifndef CLIENT_HANDLE_H
 #define CLIENT_HANDLE_H
 
-#include "netinet/in.h"
+#include <netinet/in.h>
 
 struct handle_args {
     struct sockaddr_in server_addr;
@@ -16,9 +16,9 @@ struct handle_args {
  * server response time is recorded and written to the logging file.
  * once this process has been completed, the thread runs pthread_test_cancel() and may exit.
  * </p>
- * @param data character array to write to the server.
+ * @param handle_args character array to write to the server.
  * @return none.
  */
-void * handle(void *data);
+void * handle(void *handle_args);
 
 #endif //CLIENT_HANDLE_H

@@ -20,11 +20,10 @@ int start_threads(struct state * s, struct dc_error * err, struct dc_env * env);
  * <p>
  * waits for threads to finish and stops them.
  * </p>
- * @param s pointer to the state object.
  * @param err pointer to the dc_error struct.
  * @param env pointer to the dc_env struct.
  * @return 0 on success. -1 and set errno on failure.
  */
-int stop_threads(struct state * s, struct dc_error * err, struct dc_env * env);
+int stop_threads(struct dc_error * err, struct dc_env * env);
 
 #endif //CLIENT_THREAD_H

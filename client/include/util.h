@@ -6,6 +6,26 @@
 #include <stdio.h>
 
 /**
+ * set_time
+ * <>
+ * sets dst to the current time in UTC microseconds.
+ * </p>
+ * @param dst where to assign the time.
+ * @return 0 on success. -1 on failure and set errno.
+ */
+int set_time(unsigned long * dst);
+
+/**
+ * close_fd
+ * <>
+ * closes a file descriptor.
+ * </p>
+ * @param fd file descriptor to close.
+ * @return 0 on success. -1 and set errno on failure.
+ */
+int close_fd(int fd);
+
+/**
  * init_connection
  * <p>
  * connect to a host.
@@ -54,11 +74,12 @@ int TCP_socket(int *dst);
  * <p>
  * construct a socket address.
  * </p>
- * @param addr where to construct the address.
+ * @param dst where to construct the address.
+ * @param ip the IP address to use.
  * @param port the port to use.
  * @return 0 on success. On failure, -1 and set errno.
  */
-int init_addr(struct sockaddr_in *addr, const char *ip, in_port_t port);
+int init_addr(struct sockaddr_in *dst, const char *ip, in_port_t port);
 
 /**
  * parse_port

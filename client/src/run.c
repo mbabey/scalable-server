@@ -7,6 +7,7 @@
 
 #define START 1
 #define STOP 2
+#define POLL_TIMEOUT_MSECS 500
 
 enum states {ERROR = -1, SUCCESS = 0, END = 1};
 
@@ -28,16 +29,14 @@ int run_state(struct state * s, struct dc_error * err, struct dc_env * env) {
     bool exit;
     enum states result;
     struct pollfd fds[2];
-    int timeout_msecs;
 
-    timeout_msecs = 500;
     fds[0].fd = s->controller_fd;
     fds[0].events = POLLIN;
 
     exit = false;
     while(!exit)
     {
-        result = poll(fds, 2, timeout_msecs);
+        result = poll(fds, 2, POLL_TIMEOUT_MSECS);
         if (result == ERROR && errno != EINTR) // poll error (ignore interrupt error)
         {
             perror("polling controller socket");
@@ -64,22 +63,30 @@ static int handle_controller(struct pollfd *pfd, struct state * s, struct dc_err
     DC_TRACE(env);
     pfd->revents = 0;
 
-    ssize_t nread;
+    ssize_t nread = 0;
+    ssize_t result;
     uint16_t command;
 
-    while((nread = read(s->controller_fd, &command, sizeof(command))) == 0);
-    if (nread == -1) {
-        perror("reading controller command");
-        return -1;
+    while(nread < (ssize_t)sizeof(command)) {
+        result = read(s->controller_fd, &command, sizeof(command));
+        if (result == -1) {
+            perror("reading controller command");
+            return -1;
+        }
+        nread += result;
     }
 
     command = ntohs(command);
     switch(command) {
         case START:
-            start_threads(s, err, env);
+            if (start_threads(s, err, env) == -1) {
+                return ERROR;
+            }
             return SUCCESS;
         case STOP:
-            stop_threads(s, err, env);
+            if (stop_threads(err, env) == -1) {
+                return ERROR;
+            }
             return END;
         default:
             (void) fprintf(stderr, "unknown command %d received from controller\n", command);

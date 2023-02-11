@@ -2,12 +2,37 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
+#include <sys/time.h>
+#include <unistd.h>
+
+#define SEC_TO_USEC 1000000
+
+int set_time(unsigned long * dst) {
+    struct timeval tv;
+
+    if (gettimeofday(&tv,NULL) == -1) {
+        perror("getting time");
+        return -1;
+    }
+
+    *dst = SEC_TO_USEC * tv.tv_sec + tv.tv_usec;
+    return 0;
+}
+
+int close_fd(int sock) {
+    if (close(sock) == -1) {
+        perror("closing socket");
+        return -1;
+    }
+
+    return 0;
+}
 
 int init_connection(int sock_fd, struct sockaddr_in *addr) {
     int result;
@@ -85,7 +110,6 @@ int parse_port(in_port_t *dst, const char *buff, int radix)
 {
     char *end;
     long sl;
-    in_port_t port;
     const char *msg;
 
     errno = 0;

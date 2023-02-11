@@ -1,17 +1,14 @@
 #include "../include/state.h"
 
-#include <util.h>
-#include <thread.h>
 #include <log.h>
+#include <thread.h>
+#include <util.h>
 
-#include <unistd.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
-
-#define LOG_FILE_NAME "log.csv"
-#define LOG_OPEN_MODE "w" // Mode is set to truncate for independent results from each experiment.
+#include <unistd.h>
 
 #define DATA_OPEN_MODE "r"
 
@@ -49,11 +46,11 @@ int init_state(struct init_state_params * params, struct state * s, struct dc_er
 
     if (init_connection(s->controller_fd, &s->controller_addr) == -1) return -1;
 
+    if (set_sock_blocking(s->controller_fd, false) == -1) return -1; // needed for poll
+
     if (load_data(&s->data, params->data_file_name, DATA_OPEN_MODE, env) == -1) return -1;
 
-    if (open_file(&s->log_file, LOG_FILE_NAME, LOG_OPEN_MODE) == -1) return -1;
-
-    if (init_logger(s) == -1) return -1;
+    if (init_logger() == -1) return -1;
 
     return 0;
 }
@@ -121,7 +118,7 @@ int destroy_state(struct state * s, struct dc_error * err, struct dc_env * env) 
     int result;
     int ret;
 
-    ret = stop_threads(s, err, env);
+    ret = stop_threads(err, env);
 
     if (s->controller_fd) {
         result = close(s->controller_fd);

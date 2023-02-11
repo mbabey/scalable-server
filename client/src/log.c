@@ -1,6 +1,13 @@
+#include "log.h"
+
+#include <util.h>
+
 #include <pthread.h>
 #include <string.h>
-#include "log.h"
+
+#define LOG_FILE_NAME "log.csv"
+#define LOG_OPEN_MODE "w" // Mode is set to truncate for independent results from each experiment.
+#define LOG_LINE_BUFFER 1000 // Used to hold a formatted log line.
 
 /**
  * format_write
@@ -18,17 +25,38 @@ static bool initialized = false;
 static FILE * log_file;
 pthread_mutex_t log_lock;
 
-int init_logger(struct state * s) {
+int init_logger(void) {
+    int result = 0;
+
     if (!initialized) {
-        log_file = s->log_file;
+        if (open_file(&log_file, LOG_FILE_NAME, LOG_OPEN_MODE) == -1) {
+            return -1;
+        }
+
         if (pthread_mutex_init(&log_lock, NULL) != 0) {
             perror("init log mutex");
             return -1;
         }
-        fwrite(csv_header, strlen(csv_header) + 1, 1, log_file); // TODO: err checking because lazy
+
+        (void) fwrite(csv_header, strlen(csv_header) + 1, 1, log_file);
+        if (feof(log_file)) {
+            (void) fprintf(stderr, "reading data file: unexpected end of file\n");
+            result = -1;
+        } else if (ferror(log_file)) {
+            perror("reading data file");
+            result = -1;
+        }
+    }
+
+    if (result == -1) {
+        if (pthread_mutex_destroy(&log_lock) != 0) {
+            perror("destroying log mutex");
+        }
+    } else {
         initialized = true;
     }
-    return 0;
+
+    return result;
 }
 
 int destroy_logger(void) {
@@ -67,11 +95,21 @@ int log_info(struct logger * l) {
 }
 
 static int format_write(struct logger * l) {
-    char fmt[1000];
+    char fmt[LOG_LINE_BUFFER];
 
-    sprintf(fmt, "%ld, %ld, %ld, %u, %u, %s\n", time(NULL), l->start_time, l->end_time, l->expected_bytes,
-            l->actual_bytes, l->err_msg);
+    if (sprintf(fmt, "%ld, %ld, %ld, %u, %u, %s\n", time(NULL), l->start_time, l->end_time, l->expected_bytes,
+            l->actual_bytes, l->err_msg) < 0) {
+        perror("formatting log line");
+        return -1;
+    }
 
-    fwrite(fmt, sizeof(fmt), 1, log_file); // TODO: err checking because lazy
+    (void) fwrite(fmt, sizeof(fmt), 1, log_file);
+    if (feof(log_file)) {
+        (void) fprintf(stderr, "reading data file: unexpected end of file\n");
+        return -1;
+    } else if (ferror(log_file)) {
+        perror("reading data file");
+        return -1;
+    }
     return 0;
 }

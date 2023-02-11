@@ -3,9 +3,9 @@
 #include <handle.h>
 
 #include <pthread.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 /**
  * get_processors
@@ -42,7 +42,7 @@ int start_threads(struct state * s, struct dc_error * err, struct dc_env * env) 
 
     result = create_threads(n_processors, s, err, env);
     if (result == -1) {
-        stop_threads(s, err, env);
+        stop_threads(err, env);
         return -1;
     }
 
@@ -52,7 +52,7 @@ int start_threads(struct state * s, struct dc_error * err, struct dc_env * env) 
 static int create_threads(int n, struct state * s, struct dc_error * err, struct dc_env * env) {
     DC_TRACE(env);
 
-    t_ids = malloc(n_processors * sizeof(int));
+    t_ids = malloc(n * sizeof(pthread_t));
     if (t_ids == NULL) {
         perror("malloc thread id array");
         return -1;
@@ -62,8 +62,11 @@ static int create_threads(int n, struct state * s, struct dc_error * err, struct
         struct handle_args h_args;
 
         char * data_copy = calloc((strlen(s->data) + 1), sizeof(char));
+        if (data_copy == NULL) {
+            perror("calloc for data copy");
+            return -1;
+        }
         strcpy(data_copy, s->data);
-
 
         h_args.data = data_copy;
         h_args.server_addr = s->server_addr;
@@ -77,7 +80,7 @@ static int create_threads(int n, struct state * s, struct dc_error * err, struct
     return 0;
 }
 
-int stop_threads(struct state * s, struct dc_error * err, struct dc_env * env) {
+int stop_threads(struct dc_error * err, struct dc_env * env) {
     DC_TRACE(env);
     int ret = 0;
 

@@ -1,15 +1,15 @@
 #include <state.h>
 #include <run.h>
 
-#include <dc_env/env.h>
-#include <dc_error/error.h>
 #include <dc_application/application.h>
 #include <dc_application/options.h>
 #include <dc_c/dc_stdlib.h>
 #include <dc_c/dc_string.h>
-#include <mem_manager/manager.h>
-#include <getopt.h>
+#include <dc_env/env.h>
+#include <dc_error/error.h>
 #include <dlfcn.h>
+#include <getopt.h>
+#include <mem_manager/manager.h>
 
 #define DEFAULT_CONT_PORT "5000"
 #define DEFAULT_SERVER_PORT "5000"
@@ -240,5 +240,5 @@ static int destroy_settings(const struct dc_env *env, struct dc_error *err, stru
 static void
 trace_reporter(const struct dc_env *env, const char *file_name, const char *function_name, size_t line_number)
 {
-    fprintf(stdout, "TRACE: %s : %s : @ %zu\n", file_name, function_name, line_number);
+    (void) fprintf(stdout, "TRACE: %s : %s : @ %zu\n", file_name, function_name, line_number);
 }
