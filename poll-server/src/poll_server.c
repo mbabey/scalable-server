@@ -396,16 +396,29 @@ static void log(struct core_object *co, struct state_object *so, size_t fd_num, 
     fd             = so->client_fd[conn_index];
     client_addr    = inet_ntoa(so->client_addr[conn_index].sin_addr);
     client_port    = ntohs(so->client_addr[conn_index].sin_port);
-    start_time_str = (start_time == 0) ? "NULL\0" : ctime(&start_time);
-    *(start_time_str + strlen(start_time_str) - 1) = '\0'; // Remove newline
-    end_time_str = (end_time == 0) ? "NULL\0" : ctime(&end_time);
-    *(end_time_str + strlen(end_time_str) - 1) = '\0';
+    if (start_time)
+    {
+        start_time_str = ctime(&start_time);
+        *(start_time_str + strlen(start_time_str) - 1) = '\0'; // Remove newline
+    } else
+    {
+        start_time_str = NULL;
+    }
+    if (end_time)
+    {
+        end_time_str = ctime(&end_time);
+        *(end_time_str + strlen(end_time_str) - 1) = '\0'; // Remove newline
+    } else
+    {
+        end_time_str = NULL;
+    }
     // NOLINTEND(concurrency-mt-unsafe)
     
     /* log the connection index, the file descriptor, the client IP, the client port,
      * the number of bytes read, the start time, and the end time */
     (void) fprintf(co->log_file, "%lu,%d,%s,%d,%lu,%s,%s,%lf\n", conn_index, fd, client_addr, client_port, bytes,
-                   start_time_str, end_time_str, elapsed_time_granular);
+                   (start_time_str) ? start_time_str : "NULL", (end_time_str) ? end_time_str : "NULL",
+                   elapsed_time_granular);
 }
 
 static void
