@@ -399,6 +399,10 @@ poll_remove_connection(struct core_object *co, struct state_object *so, struct p
     // close the fd
     close_fd_report_undefined_error(pollfd->fd, "state of client socket is undefined.");
     
+    // NOLINTNEXTLINE(concurrency-mt-unsafe): No threads here
+    (void) fprintf(stdout, "Client from %s:%d disconnected\n", inet_ntoa(so->client_addr[conn_index].sin_addr),
+                   ntohs(so->client_addr[conn_index].sin_port));
+    
     // zero the pollfd struct, the fd in the state object, and the client_addr in the state object.
     memset(pollfd, 0, sizeof(struct pollfd));
     memset(&so->client_addr[conn_index], 0, sizeof(struct sockaddr_in));
