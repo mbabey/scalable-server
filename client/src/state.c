@@ -86,7 +86,7 @@ static int load_data(char **dst, const char *file_name, const char *mode, struct
         return -1;
     }
 
-    *dst = malloc(data_info.st_size);
+    *dst = malloc(data_info.st_size + 1);
     if (*dst == NULL) {
         perror("malloc for data");
         return -1;
@@ -103,6 +103,7 @@ static int load_data(char **dst, const char *file_name, const char *mode, struct
         }
         result = -1;
     }
+    (*dst)[data_info.st_size] = '\0';
 
     // close file regardless of result
     if (fclose(data_file) == -1) {
