@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DEFAULT_PORT_BUT_A_NUMBER 5005
+#define DEFAULT_PORT_BUT_A_NUMBER 5006
 
 int main(int argc, char **argv)
 {

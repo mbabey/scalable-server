@@ -10,6 +10,7 @@
 #include <dc_env/env.h>
 #include <signal.h>
 #include <arpa/inet.h>
+#include <time.h>
 
 /**
  * Whether the poll loop should be running.
@@ -72,7 +73,7 @@ static int poll_accept(struct core_object *co, struct state_object *so, struct p
 static int poll_comm(struct core_object *co, struct state_object *so, struct pollfd *pollfds);
 
 /**
- * poll_read
+ * poll_recv_and_log
  * <p>
  * Read from a file descriptor. Log the results in the log file.
  * </p>
@@ -80,7 +81,7 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
  * @param pollfd the file descriptor
  * @return 0 on success, -1 on failure and set errno
  */
-static int poll_read(struct core_object *co, struct pollfd *pollfd);
+static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size_t fd_num);
 
 /**
  * poll_remove_connection
@@ -156,8 +157,8 @@ int run_poll_server(struct core_object *co)
     size_t        pollfds_len;
     
     // Set up the listen socket pollfd
-    listen_pollfd.fd     = co->so->listen_fd;
-    listen_pollfd.events = POLLIN;
+    listen_pollfd.fd      = co->so->listen_fd;
+    listen_pollfd.events  = POLLIN;
     listen_pollfd.revents = 0;
     pollfds_len = sizeof(pollfds) / sizeof(*pollfds);
     
@@ -176,7 +177,7 @@ int run_poll_server(struct core_object *co)
 static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds)
 {
     DC_TRACE(co->env);
-    int poll_status;
+    int              poll_status;
     struct sigaction sigint;
     
     if (setup_signal_handler(&sigint, SIGINT) == -1)
@@ -247,11 +248,12 @@ static int poll_accept(struct core_object *co, struct state_object *so, struct p
     }
     
     so->client_fd[conn_index] = new_cfd; // Only save in array if valid.
-    pollfds[conn_index + 1].fd = new_cfd; // Plus one because listen_fd.
+    pollfds[conn_index + 1].fd     = new_cfd; // Plus one because listen_fd.
     pollfds[conn_index + 1].events = POLLIN;
     ++so->num_connections;
     
-    (void) fprintf(stdout, "Client connected from %s:%d\n", inet_ntoa(so->client_addr[conn_index].sin_addr), ntohs(so->client_addr[conn_index].sin_port));
+    (void) fprintf(stdout, "Client connected from %s:%d\n", inet_ntoa(so->client_addr[conn_index].sin_addr),
+                   ntohs(so->client_addr[conn_index].sin_port));
     
     return 0;
 }
@@ -266,7 +268,7 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
         pollfd = pollfds + fd_num;
         if (pollfd->revents == POLLIN)
         {
-            if (poll_read(co, pollfd) == -1)
+            if (poll_recv_and_log(co, pollfd, fd_num) == -1)
             {
                 return -1;
             }
@@ -281,31 +283,36 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
     return 0;
 }
 
-static int poll_read(struct core_object *co, struct pollfd *pollfd)
+static void
+log(struct core_object *co, struct state_object *so, size_t fd_num, ssize_t bytes, time_t start_time, time_t end_time);
+
+static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size_t fd_num)
 {
     DC_TRACE(co->env);
-    ssize_t bytes;
-    char buffer[BUFSIZ * 16];
+    ssize_t       bytes;
+    char          buffer[BUFSIZ * 16];
+    time_t start_time;
+    time_t end_time;
+    
+    size_t test = sizeof(buffer);
     
     memset(buffer, 0, sizeof(buffer));
     
+    start_time = time(NULL);
     bytes = recv(pollfd->fd, buffer, sizeof(buffer), 0);
+    end_time = time(NULL);
     switch (bytes)
     {
         case -1:
-        {
-            (void) fprintf(stdout, "bytes read: %lu | buffer: \"%s\"\n", bytes, buffer);
-            return -1;
-        }
         case 0:
         {
-            // Connection closed
-            (void) fprintf(stdout, "bytes read: %lu | buffer: \"%s\"\n", bytes, buffer);
-            return 0;
+            return (int) bytes;
         }
         default:
         {
-            (void) fprintf(stdout, "bytes read: %lu | buffer: \"%s\"\n", bytes, buffer);
+            // Default: log info
+    
+            log(co, co->so, fd_num, bytes, start_time, end_time);
         }
     }
     
@@ -320,7 +327,31 @@ static int poll_read(struct core_object *co, struct pollfd *pollfd)
     return 0;
 }
 
-static void poll_remove_connection(struct core_object *co, struct state_object *so, struct pollfd *pollfd, size_t conn_index)
+static void
+log(struct core_object *co, struct state_object *so, size_t fd_num, ssize_t bytes, time_t start_time, time_t end_time)
+{
+    size_t    conn_index;
+    int       fd;
+    char      *client_addr;
+    in_port_t client_port;
+    char      *start_time_str;
+    char      *end_time_str;
+    
+    conn_index     = fd_num - 1;
+    fd             = so->client_fd[conn_index];
+    client_addr    = inet_ntoa(so->client_addr[conn_index].sin_addr);
+    client_port    = ntohs(so->client_addr[conn_index].sin_port);
+    start_time_str = ctime(&start_time);
+    end_time_str   = ctime(&end_time);
+    
+    /* log the connection index, the file descriptor, the client IP, the client port,
+     * the number of bytes read, the start time, and the end time */
+    (void) fprintf(co->log_file, "%lu,%d,%s,%d,%lu,%s,%s\n", conn_index, fd, client_addr, client_port, bytes,
+                   start_time_str, end_time_str);
+}
+
+static void
+poll_remove_connection(struct core_object *co, struct state_object *so, struct pollfd *pollfd, size_t conn_index)
 {
     DC_TRACE(co->env);
     
@@ -344,7 +375,7 @@ void destroy_poll_state(struct core_object *co, struct state_object *so)
     {
         close_fd_report_undefined_error(*(so->client_fd + sfd_num), "state of client socket is undefined.");
     }
-
+    
 }
 
 static void close_fd_report_undefined_error(int fd, const char *err_msg)
