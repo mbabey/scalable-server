@@ -40,9 +40,9 @@ static int start_listen(struct state * s, struct dc_error * err, struct dc_env *
 
     if (init_addr(&s->listen_addr, s->listen_port) == -1) return -1;
 
-    if(TCP_socket(&s->listen_fd) == -1) return -1;
+    if (TCP_socket(&s->listen_fd) == -1) return -1;
 
-    if(set_sock_blocking(s->listen_fd, true) == -1) return -1;
+    if (set_sock_blocking(s->listen_fd, true) == -1) return -1;
 
     option = 1;
     setsockopt(s->listen_fd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
