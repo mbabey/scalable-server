@@ -24,9 +24,9 @@ set(HEADER_LIST
         ${INCLUDE_DIR}/util.h
         ${INCLUDE_DIR}/thread.h
         ${INCLUDE_DIR}/run.h
-        ${SOURCE_DIR}/thread.h
-        ${SOURCE_DIR}/log.h
-        ${SOURCE_DIR}/handle.h
+        ${INCLUDE_DIR}/thread.h
+        ${INCLUDE_DIR}/log.h
+        ${INCLUDE_DIR}/handle.h
         )
 
 set(SANITIZE TRUE)

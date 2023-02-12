@@ -31,7 +31,6 @@ int init_logger(void);
  * <p>
  * destroys the logger mutex and closes the log file.
  * </p>
- * @param s pointer to the state object.
  * @return 0 on success. -1 and set errno on failure.
  */
 int destroy_logger(void);
