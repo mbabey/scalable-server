@@ -96,7 +96,7 @@ static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size
  * <p>
  * Log the information from one received message into the log file in Comma Separated Value file format.
  * </p>
- * @param co teh core object
+ * @param co the core object
  * @param so the state object
  * @param fd_num the file descriptor that was read
  * @param bytes the number of bytes read
@@ -320,40 +320,63 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
 static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size_t fd_num)
 {
     DC_TRACE(co->env);
-    ssize_t bytes;
-    char    buffer[BUFSIZ * BUFSIZ_MULTIPLIER];
-    time_t  start_time;
-    time_t  end_time;
-    clock_t start_time_granular;
-    clock_t end_time_granular;
+    ssize_t  bytes;
+    char     *buffer;
+    uint32_t bytes_to_read;
+    uint32_t bytes_read;
+    time_t   start_time;
+    time_t   end_time;
+    clock_t  start_time_granular;
+    clock_t  end_time_granular;
+    double   elapsed_time_granular;
+    double   elapsed_time_granular_total;
     
-    memset(buffer, 0, sizeof(buffer));
-    
-    start_time          = time(NULL);
-    start_time_granular = clock();
-    bytes               = recv(pollfd->fd, buffer, sizeof(buffer), 0);
-    end_time_granular   = clock();
-    end_time            = time(NULL);
-    switch (bytes)
+    // Read the number of bytes that will be sent in the message.
+    bytes = recv(pollfd->fd, &bytes_to_read, sizeof(bytes_to_read), 0);
+    if (bytes == -1)
     {
-        case -1:
-        case 0:
-        {
-            return (int) bytes;
-        }
-        default:
-        {
-            double elapsed_time_granular;
-            
-            elapsed_time_granular = (double) (end_time_granular - start_time_granular) / CLOCKS_PER_SEC;
-            
-            log(co, co->so, fd_num, bytes, start_time, end_time, elapsed_time_granular);
-        }
+        return -1;
+    }
+    bytes_to_read = ntohl(bytes_to_read);
+    
+    // Allocate the buffer based on bytes to read.
+    buffer = (char *) Mmm_calloc(bytes_to_read + 1, sizeof(char), co->mm);
+    if (!buffer)
+    {
+        return -1;
     }
     
-    uint32_t bytes_network = htonl(bytes);
+    bytes_read                  = 0;
+    elapsed_time_granular_total = 0.0;
+    start_time                  = time(NULL);
+    // Log the start time of the transaction.
+    log(co, co->so, fd_num, bytes_read, start_time, 0, elapsed_time_granular_total);
+    while (bytes_read < bytes_to_read && bytes != 0)
+    {
+        start_time_granular = clock();
+        bytes               = recv(pollfd->fd, buffer + bytes_read, sizeof(buffer), 0); // Recv into buffer
+        if (bytes == -1)
+        {
+            return -1;
+        }
+        end_time_granular = clock();
+        
+        bytes_read += bytes;
+        
+        // Get the milliseconds per read.
+        elapsed_time_granular = (double) (end_time_granular - start_time_granular) / CLOCKS_PER_SEC;
+        elapsed_time_granular_total += elapsed_time_granular;
+        // Log the number of bytes read and the time per recv.
+        log(co, co->so, fd_num, bytes, 0, 0, elapsed_time_granular);
+    }
+    end_time                    = time(NULL);
+    // Log the end time of the transaction.
+    log(co, co->so, fd_num, bytes_read, start_time, end_time, elapsed_time_granular_total);
     
-    bytes = send(pollfd->fd, &bytes_network, sizeof(bytes_network), 0);
+    co->mm->mm_free(co->mm, buffer);
+    
+    bytes_read = htonl(bytes_read);
+    bytes      = send(pollfd->fd, &bytes_read, sizeof(bytes_read), 0); // Send back the number of bytes read.
     if (bytes == -1)
     {
         return -1;
@@ -378,12 +401,11 @@ static void log(struct core_object *co, struct state_object *so, size_t fd_num, 
     fd             = so->client_fd[conn_index];
     client_addr    = inet_ntoa(so->client_addr[conn_index].sin_addr);
     client_port    = ntohs(so->client_addr[conn_index].sin_port);
-    start_time_str = ctime(&start_time);
-    end_time_str   = ctime(&end_time);
-    // NOLINTEND(concurrency-mt-unsafe)
-    
+    start_time_str = (start_time == 0) ? "NULL\0" : ctime(&start_time);
     *(start_time_str + strlen(start_time_str) - 1) = '\0'; // Remove newline
-    *(end_time_str + strlen(end_time_str) - 1)     = '\0';
+    end_time_str = (end_time == 0) ? "NULL\0" : ctime(&end_time);
+    *(end_time_str + strlen(end_time_str) - 1) = '\0';
+    // NOLINTEND(concurrency-mt-unsafe)
     
     /* log the connection index, the file descriptor, the client IP, the client port,
      * the number of bytes read, the start time, and the end time */
