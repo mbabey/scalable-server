@@ -41,4 +41,23 @@ int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_a
  */
 int destroy_state(struct state_object *so);
 
+/**
+ * run_one_to_one
+ * <p>
+ * Run the server
+ * </p>
+ * @param fd as int
+ * @return 0 on success, -1 and set errno on failure
+ */
+int handle_client (struct core_object *co);
+
+/**
+ * accept_conn
+ * <p>
+ * Accept connection
+ * </p>
+ * @param listen_fd as int
+ * @return int on accepted socket, -1 and set errno on failure
+ */
+int accept_conn(int listen_fd);
 #endif //ONE_TO_ONE_ONE_TO_ONE_H

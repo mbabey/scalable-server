@@ -112,7 +112,7 @@ static int assemble_listen_addr(struct sockaddr_in *listen_addr, const in_port_t
     int ret_val;
     
     memset(listen_addr, 0, sizeof(struct sockaddr_in));
-    
+
     listen_addr->sin_port   = htons(port_num);
     listen_addr->sin_family = AF_INET;
     switch (inet_pton(AF_INET, ip_addr, &listen_addr->sin_addr.s_addr))
@@ -173,7 +173,7 @@ void *get_api(struct api_functions *api, const char *lib_name, const struct dc_e
     lib = open_lib(lib_name, RTLD_LAZY);
     if (lib == NULL)
     {
-        (void) fprintf(stderr, "Fatal: could not open API library %s: %s\n", lib_name, strerror(errno));
+        (void) fprintf(stderr, "Fatal: could not open API library %s: %s\n", lib_name, dlerror());
         return lib;
     }
     
