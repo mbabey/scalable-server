@@ -1,21 +1,29 @@
 #include "../include/objects.h"
 #include "../include/poll_server.h"
 
+#include <arpa/inet.h>
+#include <dc_env/env.h>
 #include <errno.h>
 #include <poll.h>
+#include <signal.h>
 #include <string.h>
 #include <sys/socket.h> // back compatability
 #include <sys/types.h>  // back compatability
-#include <unistd.h>
-#include <dc_env/env.h>
-#include <signal.h>
-#include <arpa/inet.h>
 #include <time.h>
+#include <unistd.h>
 
+// NOLINTBEGIN(modernize-macro-to-enum): only one value
+/**
+ * Control the size of the receive buffer in increments of 1 KB
+ */
+#define BUFSIZ_MULTIPLIER 8
+// NOLINTEND(modernize-macro-to-enum)
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): must be non-const
 /**
  * Whether the poll loop should be running.
  */
 volatile int GOGO_POLL = 1;
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 /**
  * execute_poll
@@ -77,11 +85,27 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
  * <p>
  * Read from a file descriptor. Log the results in the log file.
  * </p>
- * @param co the core object // TODO(max): this may be FILE *?
+ * @param co the core object
  * @param pollfd the file descriptor
  * @return 0 on success, -1 on failure and set errno
  */
 static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size_t fd_num);
+
+/**
+ * log
+ * <p>
+ * Log the information from one received message into the log file in Comma Separated Value file format.
+ * </p>
+ * @param co teh core object
+ * @param so the state object
+ * @param fd_num the file descriptor that was read
+ * @param bytes the number of bytes read
+ * @param start_time the start time of the read
+ * @param end_time the end time of the read
+ * @param elapsed_time_granular the elapsed time in seconds
+ */
+static void log(struct core_object *co, struct state_object *so, size_t fd_num, ssize_t bytes,
+                time_t start_time, time_t end_time, double elapsed_time_granular);
 
 /**
  * poll_remove_connection
@@ -124,7 +148,7 @@ int open_poll_server_for_listen(struct core_object *co, struct state_object *so,
     DC_TRACE(co->env);
     int fd;
     
-    fd = socket(PF_INET, SOCK_STREAM, 0);
+    fd = socket(PF_INET, SOCK_STREAM, 0); // NOLINT(android-cloexec-socket): SOCK_CLOEXEC dne
     if (fd == -1)
     {
         return -1;
@@ -165,6 +189,10 @@ int run_poll_server(struct core_object *co)
     memset(pollfds, 0, sizeof(pollfds));
     
     pollfds[0] = listen_pollfd;
+    
+    // Set up the headers for the log file. TODO: Move this to open file once fields are agreed upon
+    (void) fprintf(co->log_file,
+                   "connection index,file descriptor,ipv4 address,port number,bytes read,start timestamp,end timestamp,elapsed time (s)\n");
     
     if (execute_poll(co, pollfds, pollfds_len) == -1)
     {
@@ -224,12 +252,15 @@ static int setup_signal_handler(struct sigaction *sa, int signal)
     return 0;
 }
 
-// NOLINTBEGIN
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+
 static void sigint_handler(int signal)
 {
     GOGO_POLL = 0;
 }
-// NOLINTEND
+
+#pragma GCC diagnostic pop
 
 static int poll_accept(struct core_object *co, struct state_object *so, struct pollfd *pollfds)
 {
@@ -252,6 +283,7 @@ static int poll_accept(struct core_object *co, struct state_object *so, struct p
     pollfds[conn_index + 1].events = POLLIN;
     ++so->num_connections;
     
+    // NOLINTNEXTLINE(concurrency-mt-unsafe): No threads here
     (void) fprintf(stdout, "Client connected from %s:%d\n", inet_ntoa(so->client_addr[conn_index].sin_addr),
                    ntohs(so->client_addr[conn_index].sin_port));
     
@@ -272,6 +304,7 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
             {
                 return -1;
             }
+            // NOLINTNEXTLINE(hicpp-signed-bitwise): never negative
         } else if ((pollfd->revents & POLLHUP) || (pollfd->revents & POLLERR))
             // Client has closed other end of socket.
             // On MacOS, POLLHUP will be set; on Linux, POLLERR will be set.
@@ -283,24 +316,24 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
     return 0;
 }
 
-static void
-log(struct core_object *co, struct state_object *so, size_t fd_num, ssize_t bytes, time_t start_time, time_t end_time);
 
 static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size_t fd_num)
 {
     DC_TRACE(co->env);
-    ssize_t       bytes;
-    char          buffer[BUFSIZ * 16];
-    time_t start_time;
-    time_t end_time;
-    
-    size_t test = sizeof(buffer);
+    ssize_t bytes;
+    char    buffer[BUFSIZ * BUFSIZ_MULTIPLIER];
+    time_t  start_time;
+    time_t  end_time;
+    clock_t start_time_granular;
+    clock_t end_time_granular;
     
     memset(buffer, 0, sizeof(buffer));
     
-    start_time = time(NULL);
-    bytes = recv(pollfd->fd, buffer, sizeof(buffer), 0);
-    end_time = time(NULL);
+    start_time          = time(NULL);
+    start_time_granular = clock();
+    bytes               = recv(pollfd->fd, buffer, sizeof(buffer), 0);
+    end_time_granular   = clock();
+    end_time            = time(NULL);
     switch (bytes)
     {
         case -1:
@@ -310,9 +343,11 @@ static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size
         }
         default:
         {
-            // Default: log info
-    
-            log(co, co->so, fd_num, bytes, start_time, end_time);
+            double elapsed_time_granular;
+            
+            elapsed_time_granular = (double) (end_time_granular - start_time_granular) / CLOCKS_PER_SEC;
+            
+            log(co, co->so, fd_num, bytes, start_time, end_time, elapsed_time_granular);
         }
     }
     
@@ -327,8 +362,9 @@ static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size
     return 0;
 }
 
-static void
-log(struct core_object *co, struct state_object *so, size_t fd_num, ssize_t bytes, time_t start_time, time_t end_time)
+
+static void log(struct core_object *co, struct state_object *so, size_t fd_num, ssize_t bytes,
+                time_t start_time, time_t end_time, double elapsed_time_granular)
 {
     size_t    conn_index;
     int       fd;
@@ -337,17 +373,22 @@ log(struct core_object *co, struct state_object *so, size_t fd_num, ssize_t byte
     char      *start_time_str;
     char      *end_time_str;
     
+    // NOLINTBEGIN(concurrency-mt-unsafe): No threads here
     conn_index     = fd_num - 1;
     fd             = so->client_fd[conn_index];
     client_addr    = inet_ntoa(so->client_addr[conn_index].sin_addr);
     client_port    = ntohs(so->client_addr[conn_index].sin_port);
     start_time_str = ctime(&start_time);
     end_time_str   = ctime(&end_time);
+    // NOLINTEND(concurrency-mt-unsafe)
+    
+    *(start_time_str + strlen(start_time_str) - 1) = '\0'; // Remove newline
+    *(end_time_str + strlen(end_time_str) - 1)     = '\0';
     
     /* log the connection index, the file descriptor, the client IP, the client port,
      * the number of bytes read, the start time, and the end time */
-    (void) fprintf(co->log_file, "%lu,%d,%s,%d,%lu,%s,%s\n", conn_index, fd, client_addr, client_port, bytes,
-                   start_time_str, end_time_str);
+    (void) fprintf(co->log_file, "%lu,%d,%s,%d,%lu,%s,%s,%lf\n", conn_index, fd, client_addr, client_port, bytes,
+                   start_time_str, end_time_str, elapsed_time_granular);
 }
 
 static void

@@ -51,7 +51,6 @@ int run_poll_server(struct core_object *co);
  * </p>
  * @param co the core object
  * @param so the state object
- * @return 0 on success, -1 and set errno on failure
  */
 void destroy_poll_state(struct core_object *co, struct state_object *so);
 
