@@ -8,22 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/time.h>
 #include <unistd.h>
-
-#define SEC_TO_USEC 1000000
-
-int set_time(unsigned long * dst) {
-    struct timeval tv;
-
-    if (gettimeofday(&tv,NULL) == -1) {
-        perror("getting time");
-        return -1;
-    }
-
-    *dst = SEC_TO_USEC * tv.tv_sec + tv.tv_usec;
-    return 0;
-}
 
 int close_fd(int sock) {
     if (close(sock) == -1) {

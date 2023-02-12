@@ -2,24 +2,27 @@
 
 #include <util.h>
 
+#include <inttypes.h>
 #include <pthread.h>
 #include <string.h>
 
 #define LOG_FILE_NAME "log.csv"
 #define LOG_OPEN_MODE "w" // Mode is set to truncate for independent results from each experiment.
-#define LOG_LINE_BUFFER 1000 // Used to hold a formatted log line.
 
 /**
- * format_write
+ * log
  * <p>
- * format the logging struct into a single line and append it to the log file.
+ * Log the information from one received message into the log file in Comma Separated Value file format.
  * </p>
- * @param l pointer to the logging struct to format
- * @return 0 on success. -1 and set errno on failure.
+ * @param start_time the start time of the read
+ * @param end_time the end time of the read
+ * @param elapsed_time_granular the elapsed time in seconds
  */
-static int format_write(struct logger * l);
+static void log(struct logger * l);
 
-const char * csv_header = "TimeStamp, StartTime, EndTime, ExpectedBytes, ActualBytes, Err\n";
+//time_stamp_str, start_time_str, end_time_str, l->elapsed_time_granular, l->err_msg
+
+const char * csv_header = "TimeStamp, ServerResponse, StartTime, EndTime, ElapsedTime, Error\n";
 
 static bool initialized = false;
 static FILE * log_file;
@@ -78,13 +81,13 @@ int destroy_logger(void) {
     return ret;
 }
 
-int log_info(struct logger * l) {
+int do_log(struct logger * l) {
     if (pthread_mutex_lock(&log_lock) != 0) {
         perror("locking log mutex");
         return -1;
     }
 
-    format_write(l);
+    log(l);
 
     if (pthread_mutex_unlock(&log_lock) != 0) {
         perror("unlocking log mutex");
@@ -94,22 +97,23 @@ int log_info(struct logger * l) {
     return 0;
 }
 
-static int format_write(struct logger * l) {
-    char fmt[LOG_LINE_BUFFER];
+static void log(struct logger * l) {
+    time_t    time_stamp;
+    char      *time_stamp_str;
+    char      *start_time_str;
+    char      *end_time_str;
 
-    if (sprintf(fmt, "%ld, %ld, %ld, %u, %u, %s\n", time(NULL), l->start_time, l->end_time, l->expected_bytes,
-            l->actual_bytes, l->err_msg) < 0) {
-        perror("formatting log line");
-        return -1;
-    }
+    // NOLINTBEGIN(concurrency-mt-unsafe): No threads here
+    time_stamp = time(NULL);
+    time_stamp_str = ctime(&time_stamp);
+    *(time_stamp_str+ strlen(time_stamp_str) - 1) = '\0';
+    start_time_str = (l->start_time == 0) ? "NULL\0" : ctime(&l->start_time);
+    *(start_time_str + strlen(start_time_str) - 1) = '\0';
+    end_time_str = (l->end_time == 0) ? "NULL\0" : ctime(&l->end_time);
+    *(end_time_str + strlen(end_time_str) - 1) = '\0';
+    // NOLINTEND(concurrency-mt-unsafe)
 
-    (void) fwrite(fmt, sizeof(fmt), 1, log_file);
-    if (feof(log_file)) {
-        (void) fprintf(stderr, "reading data file: unexpected end of file\n");
-        return -1;
-    } else if (ferror(log_file)) {
-        perror("reading data file");
-        return -1;
-    }
-    return 0;
+    (void) fprintf(log_file, "%s, %"PRIu32", %s, %s, %lf, %s\n", time_stamp_str, l->server_resp, start_time_str, end_time_str, l->elapsed_time_granular, l->err_msg);
 }
+
+// static void log(ssize_t bytes, time_t start_time, time_t end_time, double elapsed_time_granular);

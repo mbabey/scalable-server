@@ -10,12 +10,14 @@
  * </p>
  */
 struct logger {
-    unsigned long start_time;
-    unsigned long end_time;
-    uint32_t expected_bytes;
-    uint32_t actual_bytes;
+    time_t start_time;
+    time_t end_time;
+    double elapsed_time_granular;
+    uint32_t server_resp;
     const char * err_msg;
 };
+
+// ssize_t bytes, time_t start_time, time_t end_time, double elapsed_time_granular
 
 /**
  * init_logger
@@ -36,13 +38,13 @@ int init_logger(void);
 int destroy_logger(void);
 
 /**
- * log info
+ * do_log
  * <>
  * log information about the server connection.
  * </p>
  * @param l pointer to the state object.
  * @return 0 on success. -1 and set errno on failure.
  */
-int log_info(struct logger * l);
+int do_log(struct logger * l);
 
 #endif //CLIENT_LOG_H

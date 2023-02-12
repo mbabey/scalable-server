@@ -24,6 +24,8 @@ static void cleanup_handler(void *args);
 void * handle(void *handle_args) {
     int server_sock;
     ssize_t result;
+    clock_t  start_time_granular;
+    clock_t  end_time_granular;
     ssize_t nwrote = 0;
     ssize_t nread = 0;
     uint32_t f_size;
@@ -37,7 +39,6 @@ void * handle(void *handle_args) {
     while (true) {
         struct logger log;
         memset(&log, 0, sizeof(struct logger));
-        log.expected_bytes = f_size;
 
         if (TCP_socket(&server_sock) == -1) {
             return NULL;
@@ -46,10 +47,9 @@ void * handle(void *handle_args) {
         if (init_connection(server_sock, &h_args->server_addr) == -1) {
             log.err_msg = "could not connect to server";
         } else {
-            if (set_time(&log.start_time) == -1) {
-                close_fd(server_sock);
-                return NULL;
-            }
+            // record start time
+            log.start_time = time(NULL);
+            start_time_granular = clock();
 
             // write file size
             uint32_t net_f_size = htonl(f_size);
@@ -85,17 +85,17 @@ void * handle(void *handle_args) {
                 }
                 nread += result;
             }
-            log.actual_bytes = ntohl(resp);
 
             if (close_fd(server_sock) == -1) {
                 log.err_msg = "failed to close connection";
             }
 
-            if (set_time(&log.end_time) == -1) {
-                return NULL;
-            }
+            log.end_time = time(NULL);
+            end_time_granular = clock();
+            log.elapsed_time_granular = (double) (end_time_granular - start_time_granular) / CLOCKS_PER_SEC;
+            log.server_resp = ntohl(resp);
 
-            if (log_info(&log) == -1) {
+            if (do_log(&log) == -1) {
                 return NULL;
             }
         }
