@@ -26,16 +26,18 @@ void * handle(void *handle_args) {
     ssize_t result;
     ssize_t nwrote = 0;
     ssize_t nread = 0;
+    uint32_t f_size;
     uint32_t resp;
     struct handle_args *h_args;
 
     h_args = handle_args;
+    f_size = (strlen(h_args->data) + 1);
     pthread_cleanup_push(cleanup_handler, (void*)h_args->data) // run cleanup_handler on thread exit
 
     while (true) {
         struct logger log;
         memset(&log, 0, sizeof(struct logger));
-        log.expected_bytes = (strlen(h_args->data) + 1);
+        log.expected_bytes = f_size;
 
         if (TCP_socket(&server_sock) == -1) {
             return NULL;
@@ -49,8 +51,22 @@ void * handle(void *handle_args) {
                 return NULL;
             }
 
-            while (nwrote < (ssize_t)(strlen(h_args->data) + 1)) {
-                result = write(server_sock, h_args->data, (strlen(h_args->data) + 1));
+            // write file size
+            uint32_t net_f_size = htonl(f_size);
+            while (nwrote < (ssize_t)sizeof(net_f_size)) {
+                result = write(server_sock, &net_f_size, sizeof(net_f_size));
+                if (result == -1) {
+                    perror("writing data size to server");
+                    close_fd(server_sock);
+                    return NULL;
+                }
+                nwrote += result;
+            }
+
+            // write file contents
+            nwrote = 0;
+            while (nwrote < (ssize_t)f_size) {
+                result = write(server_sock, h_args->data, f_size);
                 if (result == -1) {
                     perror("writing data to server");
                     close_fd(server_sock);
@@ -59,6 +75,7 @@ void * handle(void *handle_args) {
                 nwrote += result;
             }
 
+            // receive bytes read
             while (nread < (ssize_t)sizeof(resp)) {
                 result = read(server_sock, &resp, sizeof(resp));
                 if (result == -1) {
