@@ -24,14 +24,13 @@ int initialize_server(struct core_object *co)
 
 int run_server(struct core_object *co) {
     printf("RUN ONE-TO-ONE SERVER\n");
-    int fd;
     do {
-        fd = accept_conn(co->so->listen_fd);
-        if (fd == -1) {
+        co->so->client_fd = accept_conn(co->so->listen_fd);
+        if (co->so->client_fd == -1) {
             return ERROR;
         }
     }
-    while (run_one_to_one(fd) == 0);
+    while (run_one_to_one(co) == 0);
     
     return CLOSE_SERVER;
 }

@@ -2,9 +2,28 @@
 #include "../include/one_to_one.h"
 
 #include <errno.h>
+#include <arpa/inet.h>
+#include <time.h>
+#include <string.h>
 #include <sys/socket.h> // back compatability
 #include <sys/types.h>  // back compatability
 #include <unistd.h>
+
+/**
+ * log
+ * <p>
+ * Log the information from one received message into the log file in Comma Separated Value file format.
+ * </p>
+ * @param co teh core object
+ * @param so the state object
+ * @param fd_num the file descriptor that was read
+ * @param bytes the number of bytes read
+ * @param start_time the start time of the read
+ * @param end_time the end time of the read
+ * @param elapsed_time_granular the elapsed time in seconds
+ */
+static void log(struct core_object *co, struct state_object *so, ssize_t bytes,
+                time_t start_time, time_t end_time, double elapsed_time_granular);
 
 struct state_object *setup_state(struct memory_manager *mm)
 {
@@ -57,15 +76,49 @@ int accept_conn(int listen_fd){
     return fd;
 }
 
-int run_one_to_one (int fd){
-    char buf[1024];
+int run_one_to_one (struct core_object *co){
+    char buf[1024 * 1024];
     ssize_t read_bytes;
-    while((read_bytes = read(fd, &buf, sizeof (buf))) > 0){
-        printf("The message was received:\n %.*s\n", sizeof(buf), buf);
-    }
+    do {
+        time_t  start_time = time(NULL);
+        time_t  end_time = clock();
+        read_bytes = recv(co->so->client_fd, &buf, sizeof (buf), 0);
+        clock_t start_time_granular = clock();
+        clock_t end_time_granular = time(NULL);
+        double elapsed_time_granular = (double) (end_time_granular - start_time_granular) / CLOCKS_PER_SEC;
+        log(co, co->so, read_bytes, start_time, end_time, elapsed_time_granular);
+    } while(read_bytes > 0);
+
     return read_bytes;
 }
 
+static void log(struct core_object *co, struct state_object *so, ssize_t bytes,
+                time_t start_time, time_t end_time, double elapsed_time_granular) {
+    const size_t conn_index = 0;
+    int fd;
+    char *client_addr;
+    in_port_t client_port;
+    char *start_time_str;
+    char *end_time_str;
+
+    // NOLINTBEGIN(concurrency-mt-unsafe): No threads here
+    fd = so->client_fd;
+    client_addr = inet_ntoa(so->client_addr.sin_addr);
+    client_port = ntohs(so->client_addr.sin_port);
+    start_time_str = ctime(&start_time);
+    end_time_str = ctime(&end_time);
+    // NOLINTEND(concurrency-mt-unsafe)
+
+    *(start_time_str + strlen(start_time_str) - 1) = '\0'; // Remove newline
+    *(end_time_str + strlen(end_time_str) - 1) = '\0';
+
+    /* log the connection index, the file descriptor, the client IP, the client port,
+     * the number of bytes read, the start time, and the end time */
+    (void) fprintf(co->log_file, "%lu,%d,%s,%d,%lu,%s,%s,%lf\n", conn_index, fd, client_addr, client_port, bytes,
+                   start_time_str, end_time_str, elapsed_time_granular);
+    fflush(co->log_file);
+
+}
 
 int destroy_state(struct state_object *so)
 {

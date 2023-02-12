@@ -49,7 +49,7 @@ int destroy_state(struct state_object *so);
  * @param fd as int
  * @return 0 on success, -1 and set errno on failure
  */
-int run_one_to_one(int fd);
+int run_one_to_one (struct core_object *co);
 
 /**
  * accept_conn
