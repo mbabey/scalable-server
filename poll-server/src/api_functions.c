@@ -1,6 +1,7 @@
-#include <dc_env/env.h>
 #include "../../api_functions.h"
 #include "../include/poll_server.h"
+
+#include <dc_env/env.h>
 
 int initialize_server(struct core_object *co)
 {
