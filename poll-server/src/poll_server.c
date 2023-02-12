@@ -357,6 +357,7 @@ static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size
         bytes               = recv(pollfd->fd, buffer + bytes_read, sizeof(buffer), 0); // Recv into buffer
         if (bytes == -1)
         {
+            co->mm->mm_free(co->mm, buffer);
             return -1;
         }
         end_time_granular = clock();
