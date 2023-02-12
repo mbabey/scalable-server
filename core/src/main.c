@@ -24,19 +24,6 @@
 #define API_CLOSE "close_server"
 
 /**
- * api_functions
- * <p>
- * Struct containing pointers to all API functions.
- * </p>
- */
-struct api_functions
-{
-    api initialize_server;
-    api run_server;
-    api close_server;
-};
-
-/**
  * application_settings
  * <p>
  * Struct of settings that control the application.

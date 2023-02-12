@@ -12,12 +12,6 @@
 #include <time.h>
 #include <unistd.h>
 
-// NOLINTBEGIN(modernize-macro-to-enum): only one value
-/**
- * Control the size of the receive buffer in increments of 1 KB
- */
-#define BUFSIZ_MULTIPLIER 8
-// NOLINTEND(modernize-macro-to-enum)
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): must be non-const
 /**
  * Whether the poll loop should be running.
