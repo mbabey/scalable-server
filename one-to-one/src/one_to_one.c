@@ -76,20 +76,67 @@ int accept_conn(int listen_fd){
     return fd;
 }
 
-int run_one_to_one (struct core_object *co){
-    char buf[1024 * 1024];
-    ssize_t read_bytes;
-    do {
-        time_t  start_time = time(NULL);
-        time_t  end_time = clock();
-        read_bytes = recv(co->so->client_fd, &buf, sizeof (buf), 0);
-        clock_t start_time_granular = clock();
-        clock_t end_time_granular = time(NULL);
-        double elapsed_time_granular = (double) (end_time_granular - start_time_granular) / CLOCKS_PER_SEC;
-        log(co, co->so, read_bytes, start_time, end_time, elapsed_time_granular);
-    } while(read_bytes > 0);
+enum msg_result {
+    MSG_RESULT_SUCCESS,
+    MSG_RESULT_ERROR,
+    MSG_RESULT_CLOSED,
+};
 
-    return read_bytes;
+static int receive_message (struct core_object *co){
+    uint32_t msg_size;
+    ssize_t read_bytes = recv(co->so->client_fd, &msg_size, sizeof (msg_size), MSG_WAITALL); // TODO check return value
+    if (read_bytes == 0) {
+        return MSG_RESULT_CLOSED;
+    } else if (read_bytes == -1) {
+        return MSG_RESULT_ERROR;
+    }
+    msg_size = ntohl(msg_size);
+    char buf[1024 * 1024];
+    time_t start_time = time(NULL);
+    clock_t start_time_granular = clock();
+
+    // Reducing the size of the msg to reach the end of the msg.
+    for (uint32_t remaining_bytes = msg_size; remaining_bytes > 0; remaining_bytes -= read_bytes) {
+        read_bytes = recv(co->so->client_fd, &buf, sizeof(buf) < remaining_bytes ? sizeof(buf) : remaining_bytes, 0);
+        if (read_bytes == 0) {
+            return MSG_RESULT_CLOSED;
+        } else if (read_bytes == -1) {
+            return MSG_RESULT_ERROR;
+        }
+    }
+
+    time_t  end_time = clock();
+    clock_t end_time_granular = time(NULL);
+    double elapsed_time_granular = (double) (end_time_granular - start_time_granular) / CLOCKS_PER_SEC;
+    log(co, co->so, msg_size, start_time, end_time, elapsed_time_granular);
+
+    ssize_t to_send = sizeof(msg_size);
+    msg_size = htonl(msg_size);
+
+    for (const char* size_p = (const char*)&msg_size; to_send > 0;) {
+        ssize_t sent_bytes = send(co->so->client_fd, size_p, to_send, 0);
+        if (sent_bytes == 0) {
+            return MSG_RESULT_CLOSED;
+        } else if (sent_bytes == -1) {
+            return MSG_RESULT_ERROR;
+        }
+        to_send -= sent_bytes;
+        size_p += sent_bytes;
+    }
+
+    return MSG_RESULT_SUCCESS;
+}
+
+int handle_client (struct core_object *co) {
+    int recv_result = MSG_RESULT_SUCCESS;
+    while (recv_result == MSG_RESULT_SUCCESS) {
+        recv_result = receive_message(co);
+    }
+    if (recv_result == MSG_RESULT_ERROR) {
+        return -1;
+    } else { // connection closed
+        return 0;
+    }
 }
 
 static void log(struct core_object *co, struct state_object *so, ssize_t bytes,

@@ -30,7 +30,7 @@ int run_server(struct core_object *co) {
             return ERROR;
         }
     }
-    while (run_one_to_one(co) == 0);
+    while (handle_client(co) == 0);
     
     return CLOSE_SERVER;
 }
