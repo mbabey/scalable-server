@@ -206,6 +206,10 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
     {
         return -1;
     }
+    if (setup_signal_handler(&sigint, SIGTERM) == -1)
+    {
+        return -1;
+    }
     
     while (GOGO_POLL)
     {
