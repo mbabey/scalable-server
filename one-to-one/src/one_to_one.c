@@ -105,8 +105,8 @@ static int receive_message (struct core_object *co){
         }
     }
 
-    time_t  end_time = clock();
-    clock_t end_time_granular = time(NULL);
+    time_t  end_time = time(NULL);
+    clock_t end_time_granular = clock();
     double elapsed_time_granular = (double) (end_time_granular - start_time_granular) / CLOCKS_PER_SEC;
     log(co, co->so, msg_size, start_time, end_time, elapsed_time_granular);
 
