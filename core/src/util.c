@@ -6,7 +6,7 @@
 #include <mem_manager/manager.h>
 #include <string.h>
 
-#define LOG_FILE_NAME "logs.csv"
+#define LOG_FILE_NAME "log.csv"
 #define LOG_OPEN_MODE "w" // Mode is set to truncate for independent results from each experiment.
 
 #define API_INIT "initialize_server"
