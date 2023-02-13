@@ -43,7 +43,7 @@ int TCP_socket(int *dst) {
 }
 
 int init_addr(struct sockaddr_in *dst, in_port_t port) {
-    (*dst).sin_family = AF_INET;
+    (*dst).sin_family = PF_INET;
     (*dst).sin_port = htons(port);
     (*dst).sin_addr.s_addr = INADDR_ANY;
     if((*dst).sin_addr.s_addr ==  (in_addr_t)-1)

@@ -14,7 +14,6 @@ struct logger {
     time_t end_time;
     double elapsed_time_granular;
     uint32_t server_resp;
-    const char * err_msg;
 };
 
 // ssize_t bytes, time_t start_time, time_t end_time, double elapsed_time_granular

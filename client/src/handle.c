@@ -3,7 +3,7 @@
 #include <log.h>
 #include <util.h>
 
-#include "inttypes.h"
+#include <inttypes.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -32,6 +32,7 @@ static void data_cleanup_handler(void *args);
 static void hargs_cleanup_handler(void *args);
 
 void * handle(void *handle_args) {
+    struct logger log;
     int server_sock;
     ssize_t result;
     clock_t  start_time_granular;
@@ -48,7 +49,6 @@ void * handle(void *handle_args) {
     pthread_cleanup_push(hargs_cleanup_handler, (void*)h_args) // run hargs_cleanup_handler on thread exit
 
     while (true) {
-        struct logger log;
         memset(&log, 0, sizeof(struct logger));
 
         if (TCP_socket(&server_sock) == -1) {
@@ -56,11 +56,9 @@ void * handle(void *handle_args) {
         }
 
         if (init_connection(server_sock, &h_args->server_addr) == -1) {
-            log.start_time = 0;
-            log.end_time = 0;
-            log.elapsed_time_granular = 0;
-            log.server_resp = 0;
-            log.err_msg = "could not connect to server";
+            if (close_fd(server_sock) == -1) {
+                perror("close server fd");
+            }
         } else {
             // record start time
             log.start_time = time(NULL);
@@ -68,6 +66,7 @@ void * handle(void *handle_args) {
 
             // write file size
             uint32_t net_f_size = htonl(f_size);
+            nwrote = 0;
             while (nwrote < (ssize_t)sizeof(net_f_size)) {
                 result = write(server_sock, &net_f_size, sizeof(net_f_size));
                 if (result == -1) {
@@ -91,6 +90,8 @@ void * handle(void *handle_args) {
             }
 
             // receive bytes read
+            resp = 0;
+            nread = 0;
             while (nread < (ssize_t)sizeof(resp)) {
                 result = read(server_sock, &resp, sizeof(resp));
                 if (result == -1) {
@@ -102,17 +103,17 @@ void * handle(void *handle_args) {
             }
 
             if (close_fd(server_sock) == -1) {
-                log.err_msg = "failed to close connection";
+                perror("close server fd");
             }
-            server_sock = 0;
 
             log.end_time = time(NULL);
             end_time_granular = clock();
             log.elapsed_time_granular = (double) (end_time_granular - start_time_granular) / CLOCKS_PER_SEC;
             log.server_resp = ntohl(resp);
-        }
-        if (do_log(&log) == -1) {
-            return NULL;
+
+            if (do_log(&log) == -1) {
+                return NULL;
+            }
         }
         pthread_testcancel();
     }

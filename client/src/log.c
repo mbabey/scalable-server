@@ -20,9 +20,7 @@
  */
 static void log(struct logger * l);
 
-//time_stamp_str, start_time_str, end_time_str, l->elapsed_time_granular, l->err_msg
-
-const char * csv_header = "TimeStamp, ServerResponse, StartTime, EndTime, ElapsedTime, Error\n";
+const char * csv_header = "TimeStamp, ServerResponse, StartTime, EndTime, ElapsedTime\n";
 
 static bool initialized = false;
 static FILE * log_file;
@@ -113,7 +111,7 @@ static void log(struct logger * l) {
     *(end_time_str + strlen(end_time_str) - 1) = '\0';
     // NOLINTEND(concurrency-mt-unsafe)
 
-    (void) fprintf(log_file, "%s, %"PRIu32", %s, %s, %lf, %s\n", time_stamp_str, l->server_resp, start_time_str, end_time_str, l->elapsed_time_granular, l->err_msg);
+    (void) fprintf(log_file, "%s, %"PRIu32", %s, %s, %lf\n", time_stamp_str, l->server_resp, start_time_str, end_time_str, l->elapsed_time_granular);
 }
 
 // static void log(ssize_t bytes, time_t start_time, time_t end_time, double elapsed_time_granular);

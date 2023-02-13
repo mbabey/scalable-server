@@ -3,6 +3,7 @@
 #include "../include/one_to_one.h"
 
 #include <stdio.h>
+#include <unistd.h>
 
 int initialize_server(struct core_object *co)
 {
@@ -25,6 +26,7 @@ int initialize_server(struct core_object *co)
 int run_server(struct core_object *co) {
     printf("RUN ONE-TO-ONE SERVER\n");
     do {
+        close(co->so->client_fd);
         co->so->client_fd = accept_conn(co->so->listen_fd);
         if (co->so->client_fd == -1) {
             return ERROR;
