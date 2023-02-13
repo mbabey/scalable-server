@@ -299,9 +299,8 @@ static int poll_accept(struct core_object *co, struct state_object *so, struct p
     }
     
     // NOLINTNEXTLINE(concurrency-mt-unsafe): No threads here
-    (void) fprintf(stdout, "Client connected from %s:%d ; events: %d\n",
-                   inet_ntoa(so->client_addr[conn_index].sin_addr),
-                   ntohs(so->client_addr[conn_index].sin_port), pollfds[conn_index + 1].events);
+    (void) fprintf(stdout, "Client connected from %s:%d\n", inet_ntoa(so->client_addr[conn_index].sin_addr),
+                   ntohs(so->client_addr[conn_index].sin_port));
     
     return 0;
 }
@@ -361,7 +360,6 @@ static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size
     clock_t  start_time_granular;
     clock_t  end_time_granular;
     double   elapsed_time_granular;
-    double   elapsed_time_granular_total;
     
     // Read the number of bytes that will be sent in the message.
     bytes = recv(pollfd->fd, &bytes_to_read, sizeof(bytes_to_read), 0);
@@ -369,7 +367,7 @@ static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size
     {
         return -1;
     }
-
+    
     bytes_to_read = ntohl(bytes_to_read);
     
     // Allocate the buffer based on bytes to read.
@@ -381,34 +379,23 @@ static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size
     }
     
     bytes_read                  = 0;
-    elapsed_time_granular_total = 0.0;
     start_time                  = time(NULL);
-    // Log the start time of the transaction.
-    log(co, co->so, fd_num, bytes, start_time, 0, elapsed_time_granular_total);
+    start_time_granular         = clock();
     while (bytes_read < bytes_to_read && bytes != 0)
     {
         memset(buffer, 0, buffer_size);
-        
-        start_time_granular = clock();
-        bytes               = recv(pollfd->fd, buffer + bytes_read, sizeof(buffer), 0); // Recv into buffer
+        bytes = recv(pollfd->fd, buffer + bytes_read, sizeof(buffer), 0); // Recv into buffer
         if (bytes == -1)
         {
             co->mm->mm_free(co->mm, buffer);
             return -1;
         }
-        end_time_granular = clock();
-        
         bytes_read += bytes;
-        
-        // Get the milliseconds per read.
-        elapsed_time_granular = (double) (end_time_granular - start_time_granular) / CLOCKS_PER_SEC;
-        elapsed_time_granular_total += elapsed_time_granular;
-        // Log the number of bytes read and the time per recv.
-        log(co, co->so, fd_num, bytes, 0, 0, elapsed_time_granular);
     }
+    end_time_granular           = clock();
     end_time                    = time(NULL);
-    // Log the end time of the transaction.
-    log(co, co->so, fd_num, bytes_read, start_time, end_time, elapsed_time_granular_total);
+    elapsed_time_granular       = (double) (end_time_granular - start_time_granular) / CLOCKS_PER_SEC;
+    log(co, co->so, fd_num, bytes_read, start_time, end_time, elapsed_time_granular);
     
     co->mm->mm_free(co->mm, buffer);
     
