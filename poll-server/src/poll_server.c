@@ -383,7 +383,6 @@ static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size
     start_time_granular         = clock();
     while (bytes_read < bytes_to_read && bytes != 0)
     {
-        memset(buffer, 0, buffer_size);
         bytes = recv(pollfd->fd, buffer + bytes_read, sizeof(buffer), 0); // Recv into buffer
         if (bytes == -1)
         {
