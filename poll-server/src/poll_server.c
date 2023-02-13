@@ -62,6 +62,16 @@ static void sigint_handler(int signal);
 static int poll_accept(struct core_object *co, struct state_object *so, struct pollfd *pollfds);
 
 /**
+ * get_conn_index
+ * <p>
+ * Find an index in the file descriptor array where file descriptor == 0.
+ * </p>
+ * @param client_fds the file descriptor array
+ * @return the first index where file descriptor == 0
+ */
+static int get_conn_index(const int *client_fds);
+
+/**
  * poll_comm
  * <p>
  * Read from all file descriptors in pollfds for which POLLIN is set.
@@ -267,7 +277,7 @@ static int poll_accept(struct core_object *co, struct state_object *so, struct p
     size_t    conn_index;
     socklen_t sockaddr_size;
     
-    conn_index    = so->num_connections;
+    conn_index    = get_conn_index(so->client_fd);
     sockaddr_size = sizeof(struct sockaddr_in);
     
     new_cfd = accept(so->listen_fd, (struct sockaddr *) &so->client_addr[conn_index], &sockaddr_size);
@@ -281,11 +291,26 @@ static int poll_accept(struct core_object *co, struct state_object *so, struct p
     pollfds[conn_index + 1].events = POLLIN;
     ++so->num_connections;
     
+    printf("connect conn_index: %lu\n", conn_index);
     // NOLINTNEXTLINE(concurrency-mt-unsafe): No threads here
     (void) fprintf(stdout, "Client connected from %s:%d\n", inet_ntoa(so->client_addr[conn_index].sin_addr),
                    ntohs(so->client_addr[conn_index].sin_port));
-    
+
     return 0;
+}
+
+static int get_conn_index(const int *client_fds)
+{
+    int conn_index = 0;
+    
+    for (int i = 0; i < MAX_CONNECTIONS; ++i)
+    {
+        if (*(client_fds + i) == 0)
+        {
+            conn_index = i;
+        }
+    }
+    return conn_index;
 }
 
 static int poll_comm(struct core_object *co, struct state_object *so, struct pollfd *pollfds)
@@ -293,7 +318,7 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
     DC_TRACE(co->env);
     struct pollfd *pollfd;
     
-    for (size_t fd_num = 1; fd_num <= co->so->num_connections; ++fd_num)
+    for (size_t fd_num = 1; fd_num <= MAX_CONNECTIONS; ++fd_num)
     {
         pollfd = pollfds + fd_num;
         if (pollfd->revents == POLLIN)
@@ -314,12 +339,12 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
     return 0;
 }
 
-
 static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size_t fd_num)
 {
     DC_TRACE(co->env);
     ssize_t  bytes;
     char     *buffer;
+    size_t   buffer_size;
     uint32_t bytes_to_read;
     uint32_t bytes_read;
     time_t   start_time;
@@ -335,22 +360,30 @@ static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size
     {
         return -1;
     }
+    
+    (void) fprintf(stdout, "read fd %d\n", pollfd->fd);
+//    (void) fprintf(stdout, "fd: %d; sent bytes to read: %d\n", pollfd->fd, (int32_t) bytes_to_read);
+    
     bytes_to_read = ntohl(bytes_to_read);
     
     // Allocate the buffer based on bytes to read.
-    buffer = (char *) Mmm_calloc(bytes_to_read + 1, sizeof(char), co->mm);
+    buffer_size = (bytes_to_read + 1 * sizeof(char));
+    buffer      = (char *) Mmm_malloc(buffer_size, co->mm);
     if (!buffer)
     {
         return -1;
     }
+//    (void) fprintf(stdout, "new connection; bytes to read: %d\n", bytes_to_read);
     
     bytes_read                  = 0;
     elapsed_time_granular_total = 0.0;
     start_time                  = time(NULL);
     // Log the start time of the transaction.
-    log(co, co->so, fd_num, bytes_read, start_time, 0, elapsed_time_granular_total);
+    log(co, co->so, fd_num, bytes, start_time, 0, elapsed_time_granular_total);
     while (bytes_read < bytes_to_read && bytes != 0)
     {
+        memset(buffer, 0, buffer_size);
+        
         start_time_granular = clock();
         bytes               = recv(pollfd->fd, buffer + bytes_read, sizeof(buffer), 0); // Recv into buffer
         if (bytes == -1)
@@ -384,7 +417,6 @@ static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size
     return 0;
 }
 
-
 static void log(struct core_object *co, struct state_object *so, size_t fd_num, ssize_t bytes,
                 time_t start_time, time_t end_time, double elapsed_time_granular)
 {
@@ -396,10 +428,10 @@ static void log(struct core_object *co, struct state_object *so, size_t fd_num, 
     char      *end_time_str;
     
     // NOLINTBEGIN(concurrency-mt-unsafe): No threads here
-    conn_index     = fd_num - 1;
-    fd             = so->client_fd[conn_index];
-    client_addr    = inet_ntoa(so->client_addr[conn_index].sin_addr);
-    client_port    = ntohs(so->client_addr[conn_index].sin_port);
+    conn_index  = fd_num - 1;
+    fd          = so->client_fd[conn_index];
+    client_addr = inet_ntoa(so->client_addr[conn_index].sin_addr);
+    client_port = ntohs(so->client_addr[conn_index].sin_port);
     if (start_time)
     {
         start_time_str = ctime(&start_time);
@@ -432,7 +464,7 @@ poll_remove_connection(struct core_object *co, struct state_object *so, struct p
     
     // close the fd
     close_fd_report_undefined_error(pollfd->fd, "state of client socket is undefined.");
-    
+
     // NOLINTNEXTLINE(concurrency-mt-unsafe): No threads here
     (void) fprintf(stdout, "Client from %s:%d disconnected\n", inet_ntoa(so->client_addr[conn_index].sin_addr),
                    ntohs(so->client_addr[conn_index].sin_port));
@@ -454,7 +486,6 @@ void destroy_poll_state(struct core_object *co, struct state_object *so)
     {
         close_fd_report_undefined_error(*(so->client_fd + sfd_num), "state of client socket is undefined.");
     }
-    
 }
 
 static void close_fd_report_undefined_error(int fd, const char *err_msg)
@@ -475,5 +506,4 @@ static void close_fd_report_undefined_error(int fd, const char *err_msg)
             }
         }
     }
-    
 }

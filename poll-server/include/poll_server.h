@@ -7,7 +7,7 @@
 /**
  * The number of connections that can be queued on the listening socket.
  */
-#define CONNECTION_QUEUE 10
+#define CONNECTION_QUEUE 100
 
 /**
  * setup_poll_state
