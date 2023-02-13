@@ -1,6 +1,7 @@
 #include "thread.h"
 
 #include <handle.h>
+#include <util.h>
 
 #include <pthread.h>
 #include <stdlib.h>
@@ -64,18 +65,33 @@ static int create_threads(int n, struct state * s, struct dc_error * err, struct
             perror("malloc for thread handle args");
             return -1;
         }
-        char * data_copy = calloc(s->data_size, sizeof(char));
-        if (data_copy == NULL) {
+
+        h_args->data = calloc(s->data_size, sizeof(char));
+        if (h_args->data  == NULL) {
+            free(h_args);
             perror("calloc for data copy");
             return -1;
         }
-        strncpy(data_copy, s->data, s->data_size);
+        strncpy(h_args->data , s->data, s->data_size);
 
-        h_args->data = data_copy;
+        h_args->server_addr = malloc(sizeof(struct sockaddr_in));
+        if (h_args->server_addr == NULL) {
+            free(h_args->data);
+            free(h_args);
+            perror("malloc for addr");
+            return -1;
+        }
+
+        if (init_addr(h_args->server_addr, s->server_ip, s->server_port) == -1) {
+            free(h_args->data);
+            free(h_args);
+            return -1;
+        }
+
         h_args->data_size = s->data_size;
-        h_args->server_addr = s->server_addr;
         if(pthread_create(&t_ids[i], NULL, handle, (void *)h_args) != 0) {
-            free(data_copy);
+            free(h_args->server_addr);
+            free(h_args->data);
             free(h_args);
             return -1;
         }
@@ -96,6 +112,15 @@ int stop_threads(struct dc_error * err, struct dc_env * env) {
             ret = -1;
         }
     }
+
+    for (int i = 0; i < n_threads; i++) {
+        int result = pthread_join(t_ids[i], NULL); // wait for all
+        if (result == -1) {
+            perror("joining thread");
+            ret = -1;
+        }
+    }
+
     if (t_ids != NULL) {
         free(t_ids);
         t_ids = NULL;

@@ -27,7 +27,6 @@ struct state {
     int controller_fd;
     in_port_t server_port;
     const char* server_ip;
-    struct sockaddr_in server_addr;
     // server socket is created and closed in each thread
     char *data;
     off_t data_size;
