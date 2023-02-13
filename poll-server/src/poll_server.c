@@ -4,7 +4,6 @@
 #include <arpa/inet.h>
 #include <dc_env/env.h>
 #include <errno.h>
-#include <inttypes.h>
 #include <poll.h>
 #include <signal.h>
 #include <string.h>
@@ -197,7 +196,7 @@ int run_poll_server(struct core_object *co)
     
     pollfds[0] = listen_pollfd;
     
-    // Set up the headers for the log file. TODO: Move this to open file once fields are agreed upon
+    // Set up the headers for the log file.
     (void) fprintf(co->log_file,
                    "connection index,file descriptor,ipv4 address,port number,bytes read,start timestamp,end timestamp,elapsed time (s)\n");
     
@@ -327,13 +326,9 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
     DC_TRACE(co->env);
     struct pollfd *pollfd;
     
-    printf("fd[0]: %d ; fd[1]: %d ; fd[2]: %d ; fd[3]: %d ; fd[4]: %d\n", *(so->client_fd + 0), *(so->client_fd + 1),
-           *(so->client_fd + 2), *(so->client_fd + 3), *(so->client_fd + 4));
-    
     for (size_t fd_num = 1; fd_num <= MAX_CONNECTIONS; ++fd_num)
     {
         pollfd = pollfds + fd_num;
-        printf("fd: %d ; events: %d ; revents: %d \n", pollfd->fd, pollfd->events, pollfd->revents);
         if (pollfd->revents == POLLIN)
         {
             if (poll_recv_and_log(co, pollfd, fd_num) == -1)
@@ -377,20 +372,13 @@ static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size
 
     bytes_to_read = ntohl(bytes_to_read);
     
-    (void) fprintf(stdout, "read fd %d\n", pollfd->fd);
-//    (void) fprintf(stdout, "fd: %d; sent bytes to read: %d\n", pollfd->fd, (int32_t) bytes_to_read);
-    
     // Allocate the buffer based on bytes to read.
-//    bytes_to_read = 24;
-//    bytes         = 1;
-    
     buffer_size = (bytes_to_read + 1 * sizeof(char));
     buffer      = (char *) Mmm_malloc(buffer_size, co->mm);
     if (!buffer)
     {
         return -1;
     }
-    (void) fprintf(stdout, "bytes to read: %"PRIu32"\n", bytes_to_read);
     
     bytes_read                  = 0;
     elapsed_time_granular_total = 0.0;
@@ -405,7 +393,6 @@ static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size
         bytes               = recv(pollfd->fd, buffer + bytes_read, sizeof(buffer), 0); // Recv into buffer
         if (bytes == -1)
         {
-            printf("BIG BAD ERROR\n");
             co->mm->mm_free(co->mm, buffer);
             return -1;
         }

@@ -9,7 +9,7 @@
 #include <string.h>
 #include <dlfcn.h>
 
-#define LOG_FILE_NAME "logs.csv"
+#define LOG_FILE_NAME "log.csv"
 #define LOG_OPEN_MODE "w" // Mode is set to truncate for independent results from each experiment.
 
 // TODO: relative path should be changed to absolute.
