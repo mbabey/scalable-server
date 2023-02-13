@@ -4,6 +4,7 @@
 #include <arpa/inet.h>
 #include <dc_env/env.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <poll.h>
 #include <signal.h>
 #include <string.h>
@@ -11,6 +12,7 @@
 #include <sys/types.h>  // back compatability
 #include <time.h>
 #include <unistd.h>
+
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): must be non-const
 /**
@@ -122,7 +124,8 @@ static void log(struct core_object *co, struct state_object *so, size_t fd_num, 
  * @param conn_index the index of the connection in the array of client_fds and client_addrs
  */
 static void
-poll_remove_connection(struct core_object *co, struct state_object *so, struct pollfd *pollfd, size_t conn_index);
+poll_remove_connection(struct core_object *co, struct state_object *so, struct pollfd *pollfd, size_t conn_index,
+                       struct pollfd *listen_pollfd);
 
 /**
  * close_fd_report_undefined_error
@@ -230,7 +233,7 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
         }
         
         // If action on the listen socket.
-        if ((*pollfds).revents == POLLIN && co->so->num_connections < MAX_CONNECTIONS)
+        if ((*pollfds).revents == POLLIN)
         {
             if (poll_accept(co, co->so, pollfds) == -1)
             {
@@ -291,11 +294,16 @@ static int poll_accept(struct core_object *co, struct state_object *so, struct p
     pollfds[conn_index + 1].events = POLLIN;
     ++so->num_connections;
     
-    printf("connect conn_index: %lu\n", conn_index);
+    if (so->num_connections >= MAX_CONNECTIONS)
+    {
+        pollfds->events = 0; // Turn off POLLIN on the listening socket when max connections reached.
+    }
+    
     // NOLINTNEXTLINE(concurrency-mt-unsafe): No threads here
-    (void) fprintf(stdout, "Client connected from %s:%d\n", inet_ntoa(so->client_addr[conn_index].sin_addr),
-                   ntohs(so->client_addr[conn_index].sin_port));
-
+    (void) fprintf(stdout, "Client connected from %s:%d ; events: %d\n",
+                   inet_ntoa(so->client_addr[conn_index].sin_addr),
+                   ntohs(so->client_addr[conn_index].sin_port), pollfds[conn_index + 1].events);
+    
     return 0;
 }
 
@@ -308,6 +316,7 @@ static int get_conn_index(const int *client_fds)
         if (*(client_fds + i) == 0)
         {
             conn_index = i;
+            break;
         }
     }
     return conn_index;
@@ -318,9 +327,13 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
     DC_TRACE(co->env);
     struct pollfd *pollfd;
     
+    printf("fd[0]: %d ; fd[1]: %d ; fd[2]: %d ; fd[3]: %d ; fd[4]: %d\n", *(so->client_fd + 0), *(so->client_fd + 1),
+           *(so->client_fd + 2), *(so->client_fd + 3), *(so->client_fd + 4));
+    
     for (size_t fd_num = 1; fd_num <= MAX_CONNECTIONS; ++fd_num)
     {
         pollfd = pollfds + fd_num;
+        printf("fd: %d ; events: %d ; revents: %d \n", pollfd->fd, pollfd->events, pollfd->revents);
         if (pollfd->revents == POLLIN)
         {
             if (poll_recv_and_log(co, pollfd, fd_num) == -1)
@@ -332,8 +345,9 @@ static int poll_comm(struct core_object *co, struct state_object *so, struct pol
             // Client has closed other end of socket.
             // On MacOS, POLLHUP will be set; on Linux, POLLERR will be set.
         {
-            (poll_remove_connection(co, so, pollfd, fd_num - 1));
+            (poll_remove_connection(co, so, pollfd, fd_num - 1, pollfds));
         }
+        pollfd->revents = 0;
     }
     
     return 0;
@@ -360,20 +374,23 @@ static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size
     {
         return -1;
     }
+
+    bytes_to_read = ntohl(bytes_to_read);
     
     (void) fprintf(stdout, "read fd %d\n", pollfd->fd);
 //    (void) fprintf(stdout, "fd: %d; sent bytes to read: %d\n", pollfd->fd, (int32_t) bytes_to_read);
     
-    bytes_to_read = ntohl(bytes_to_read);
-    
     // Allocate the buffer based on bytes to read.
+//    bytes_to_read = 24;
+//    bytes         = 1;
+    
     buffer_size = (bytes_to_read + 1 * sizeof(char));
     buffer      = (char *) Mmm_malloc(buffer_size, co->mm);
     if (!buffer)
     {
         return -1;
     }
-//    (void) fprintf(stdout, "new connection; bytes to read: %d\n", bytes_to_read);
+    (void) fprintf(stdout, "bytes to read: %"PRIu32"\n", bytes_to_read);
     
     bytes_read                  = 0;
     elapsed_time_granular_total = 0.0;
@@ -388,6 +405,7 @@ static int poll_recv_and_log(struct core_object *co, struct pollfd *pollfd, size
         bytes               = recv(pollfd->fd, buffer + bytes_read, sizeof(buffer), 0); // Recv into buffer
         if (bytes == -1)
         {
+            printf("BIG BAD ERROR\n");
             co->mm->mm_free(co->mm, buffer);
             return -1;
         }
@@ -458,13 +476,14 @@ static void log(struct core_object *co, struct state_object *so, size_t fd_num, 
 }
 
 static void
-poll_remove_connection(struct core_object *co, struct state_object *so, struct pollfd *pollfd, size_t conn_index)
+poll_remove_connection(struct core_object *co, struct state_object *so, struct pollfd *pollfd, size_t conn_index,
+                       struct pollfd *listen_pollfd)
 {
     DC_TRACE(co->env);
     
     // close the fd
     close_fd_report_undefined_error(pollfd->fd, "state of client socket is undefined.");
-
+    
     // NOLINTNEXTLINE(concurrency-mt-unsafe): No threads here
     (void) fprintf(stdout, "Client from %s:%d disconnected\n", inet_ntoa(so->client_addr[conn_index].sin_addr),
                    ntohs(so->client_addr[conn_index].sin_port));
@@ -474,6 +493,11 @@ poll_remove_connection(struct core_object *co, struct state_object *so, struct p
     memset(&so->client_addr[conn_index], 0, sizeof(struct sockaddr_in));
     so->client_fd[conn_index] = 0;
     --so->num_connections;
+    
+    if (so->num_connections < MAX_CONNECTIONS)
+    {
+        listen_pollfd->events = POLLIN; // Turn on POLLIN on the listening socket when less than max connections.
+    }
 }
 
 void destroy_poll_state(struct core_object *co, struct state_object *so)
