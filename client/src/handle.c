@@ -37,8 +37,8 @@ void * handle(void *handle_args) {
     ssize_t result;
     clock_t  start_time_granular;
     clock_t  end_time_granular;
-    ssize_t nwrote = 0;
-    ssize_t nread = 0;
+    ssize_t nwrote;
+    ssize_t nread;
     uint32_t f_size;
     uint32_t resp;
     struct handle_args *h_args;
@@ -56,9 +56,7 @@ void * handle(void *handle_args) {
         }
 
         if (init_connection(server_sock, &h_args->server_addr) == -1) {
-            if (close_fd(server_sock) == -1) {
-                perror("close server fd");
-            }
+            close_fd(server_sock);
         } else {
             // record start time
             log.start_time = time(NULL);
@@ -114,6 +112,7 @@ void * handle(void *handle_args) {
             if (do_log(&log) == -1) {
                 return NULL;
             }
+            printf("DONE\n");
         }
         pthread_testcancel();
     }
