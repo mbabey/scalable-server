@@ -22,7 +22,7 @@
  * @param mode mode to open the file in.
  * @return 0 on success. -1 on failure and set errno.
  */
-static int load_data(char **dst, const char *file_name, const char *mode, struct dc_env * env);
+static int load_data(char **dst, struct state * s, const char *file_name, const char *mode, struct dc_env * env);
 
 static int validate_params(struct init_state_params * params, struct dc_env * env);
 
@@ -48,7 +48,7 @@ int init_state(struct init_state_params * params, struct state * s, struct dc_er
 
     if (set_sock_blocking(s->controller_fd, false) == -1) return -1; // needed for poll
 
-    if (load_data(&s->data, params->data_file_name, DATA_OPEN_MODE, env) == -1) return -1;
+    if (load_data(&s->data, s, params->data_file_name, DATA_OPEN_MODE, env) == -1) return -1;
 
     if (init_logger() == -1) return -1;
 
@@ -73,7 +73,7 @@ static int validate_params(struct init_state_params * params, struct dc_env * en
     return 0;
 }
 
-static int load_data(char **dst, const char *file_name, const char *mode, struct dc_env * env) {
+static int load_data(char **dst, struct state * s, const char *file_name, const char *mode, struct dc_env * env) {
     DC_TRACE(env);
     FILE * data_file;
     struct stat data_info;
@@ -103,8 +103,8 @@ static int load_data(char **dst, const char *file_name, const char *mode, struct
         }
         result = -1;
     }
-    (*dst)[data_info.st_size] = '\0';
-
+    s->data_size = data_info.st_size;
+    
     // close file regardless of result
     if (fclose(data_file) == -1) {
         perror("closing data file");

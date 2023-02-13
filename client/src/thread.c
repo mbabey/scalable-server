@@ -59,19 +59,24 @@ static int create_threads(int n, struct state * s, struct dc_error * err, struct
     }
 
     for (int i = 0; i < n; i++) {
-        struct handle_args h_args;
-
-        char * data_copy = calloc((strlen(s->data) + 1), sizeof(char));
+        struct handle_args * h_args = malloc(sizeof(struct handle_args));
+        if (h_args == NULL) {
+            perror("malloc for thread handle args");
+            return -1;
+        }
+        char * data_copy = calloc(s->data_size, sizeof(char));
         if (data_copy == NULL) {
             perror("calloc for data copy");
             return -1;
         }
-        strcpy(data_copy, s->data);
+        strncpy(data_copy, s->data, s->data_size);
 
-        h_args.data = data_copy;
-        h_args.server_addr = s->server_addr;
-        if(pthread_create(&t_ids[i], NULL, handle, (void *)&h_args) != 0) {
+        h_args->data = data_copy;
+        h_args->data_size = s->data_size;
+        h_args->server_addr = s->server_addr;
+        if(pthread_create(&t_ids[i], NULL, handle, (void *)h_args) != 0) {
             free(data_copy);
+            free(h_args);
             return -1;
         }
         n_threads++;

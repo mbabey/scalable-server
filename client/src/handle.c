@@ -3,6 +3,7 @@
 #include <log.h>
 #include <util.h>
 
+#include "inttypes.h"
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -13,13 +14,22 @@
 #pragma ide diagnostic ignored "EndlessLoop" // suppress endless loop warning
 
 /**
- * cleanup_handler
+ * data_cleanup_handler
  * <p>
  * frees data on thread exit.
  * </p>
  * @param args char pointer to data.
  */
-static void cleanup_handler(void *args);
+static void data_cleanup_handler(void *args);
+
+/**
+ * hargs_cleanup_handler
+ * <p>
+ * frees handle arguments struct on exit.
+ * </p>
+ * @param args char pointer to data.
+ */
+static void hargs_cleanup_handler(void *args);
 
 void * handle(void *handle_args) {
     int server_sock;
@@ -33,8 +43,9 @@ void * handle(void *handle_args) {
     struct handle_args *h_args;
 
     h_args = handle_args;
-    f_size = (strlen(h_args->data) + 1);
-    pthread_cleanup_push(cleanup_handler, (void*)h_args->data) // run cleanup_handler on thread exit
+    f_size = h_args->data_size;
+    pthread_cleanup_push(data_cleanup_handler, (void*)h_args->data) // run data_cleanup_handler on thread exit
+    pthread_cleanup_push(hargs_cleanup_handler, (void*)h_args) // run hargs_cleanup_handler on thread exit
 
     while (true) {
         struct logger log;
@@ -45,6 +56,10 @@ void * handle(void *handle_args) {
         }
 
         if (init_connection(server_sock, &h_args->server_addr) == -1) {
+            log.start_time = 0;
+            log.end_time = 0;
+            log.elapsed_time_granular = 0;
+            log.server_resp = 0;
             log.err_msg = "could not connect to server";
         } else {
             // record start time
@@ -65,7 +80,7 @@ void * handle(void *handle_args) {
 
             // write file contents
             nwrote = 0;
-            while (nwrote < (ssize_t)f_size) {
+            while (nwrote < (ssize_t)(f_size)) {
                 result = write(server_sock, h_args->data, f_size);
                 if (result == -1) {
                     perror("writing data to server");
@@ -89,28 +104,35 @@ void * handle(void *handle_args) {
             if (close_fd(server_sock) == -1) {
                 log.err_msg = "failed to close connection";
             }
+            server_sock = 0;
 
             log.end_time = time(NULL);
             end_time_granular = clock();
             log.elapsed_time_granular = (double) (end_time_granular - start_time_granular) / CLOCKS_PER_SEC;
             log.server_resp = ntohl(resp);
-
-            if (do_log(&log) == -1) {
-                return NULL;
-            }
         }
-
+        if (do_log(&log) == -1) {
+            return NULL;
+        }
         pthread_testcancel();
     }
 
-    pthread_cleanup_pop(1) // should never reach here, but set to 1 to run cleanup_handler anyway
+    pthread_cleanup_pop(1) // should never reach here, but set to 1 to run data_cleanup_handler anyway
+    pthread_cleanup_pop(1) // should never reach here, but set to 1 to run hargs_cleanup_handler anyway
 }
 
-static void cleanup_handler(void *args) {
+static void data_cleanup_handler(void *args) {
         char * data;
 
         data = args;
         free(data);
+}
+
+static void hargs_cleanup_handler(void *args) {
+    struct handle_args * h_args;
+
+    h_args = args;
+    free(h_args);
 }
 
 #pragma clang diagnostic pop
