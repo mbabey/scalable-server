@@ -35,7 +35,7 @@ volatile int GOGO_PROCESS = 1;
 static int p_run_poll_loop(struct core_object *co, struct state_object *so);
 
 /**
- * c_receive_log_respond
+ * c_receive_and_handle_messages
  * <p>
  * Look for action on the domain socket, read the sent client socket, then send the client fd known by the parent
  * through the pipe when reading is done.
@@ -43,7 +43,7 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so);
  * @param co the core_object
  * @return 0 on success, -1 and set errno on failure
  */
-static int c_receive_log_respond(struct core_object *co, struct state_object *so);
+static int c_receive_and_handle_messages(struct core_object *co, struct state_object *so);
 
 /**
  * setup_signal_handler
@@ -125,7 +125,7 @@ int run_process_server(struct core_object *co, struct state_object *so)
         p_run_poll_loop(co, so);
     } else if (so->child)
     {
-        c_receive_log_respond(co, so);
+        c_receive_and_handle_messages(co, so);
     }
     
     return 0;
@@ -135,11 +135,16 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so)
 {
     DC_TRACE(co->env);
     // TODO: in this function the server process (parent) will poll active sockets then send them to the children.
+    //  if the active socket is the listen socket, the parent will accept a new connection. Very similar to poll server.
+    
+    // Recommend: use while (GOGO_PROCESS) :) see poll-server/poll_server.c::execute_poll():line 212
+    // The function in here will look exactly the same, except the poll_comm will be a function that sends
+    // the message to a child process.
     
     return 0;
 }
 
-static int c_receive_log_respond(struct core_object *co, struct state_object *so) // fixme: needs a more accurate name.
+static int c_receive_and_handle_messages(struct core_object *co, struct state_object *so)
 {
     DC_TRACE(co->env);
     // TODO: in this function the child process will look for action on the domain socket, read a socket, then send the parent fd through the pipe when reading is done.
@@ -173,7 +178,7 @@ void destroy_process_state(struct core_object *co, struct state_object *so)
 {
     DC_TRACE(co->env);
     
-    // TODO: here is where we must tie up all of the processes. perhaps use signals?
+    // TODO: here is where we must tie up all of the processes/threads. perhaps use signals?
     
     close_fd_report_undefined_error(so->parent->listen_fd, "state of listen socket is undefined.");
     
