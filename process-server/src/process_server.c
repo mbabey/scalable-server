@@ -1,5 +1,6 @@
 #include "../include/objects.h"
 #include "../include/process_server.h"
+#include "../include/setup.h"
 
 #include <arpa/inet.h>
 #include <dc_env/env.h>
@@ -47,52 +48,59 @@ static void end_gogo_handler(int signal);
  */
 static void close_fd_report_undefined_error(int fd, const char *err_msg);
 
-struct state_object *setup_process_state(struct memory_manager *mm)
+int setup_process_server(struct core_object *co, struct state_object *so)
 {
-    struct state_object *so;
-    
-    so = (struct state_object *) Mmm_calloc(1, sizeof(struct state_object), mm);
-    if (!so) // Depending on whether more is added to this state object, this if clause may go.
-    {
-        return NULL;
-    }
-    
-    return so;
-}
-
-int open_process_server_for_listen(struct core_object *co, struct parent_struct *ps, struct sockaddr_in *listen_addr)
-{
-    DC_TRACE(co->env);
-    int fd;
-    
-    fd = socket(PF_INET, SOCK_STREAM, 0); // NOLINT(android-cloexec-socket): SOCK_CLOEXEC dne
-    if (fd == -1)
+    so = setup_process_state(co->mm); // fixme: Will this allocate to the address in co? I think so, but not sure.
+    if (!so)
     {
         return -1;
     }
     
-    if (bind(fd, (struct sockaddr *) listen_addr, sizeof(struct sockaddr_in)) == -1)
+    if (open_domain_socket_setup_semaphores(co, so) == -1)
     {
-        (void) close(fd);
         return -1;
     }
     
-    if (listen(fd, CONNECTION_QUEUE) == -1)
-    {
-        (void) close(fd);
-        return -1;
-    }
+    pid_t pid;
     
-    /* Only assign if absolute success. listen_fd == 0 can be used during teardown
-     * to determine whether there is a socket to close. */
-    ps->listen_fd = fd;
+    // TODO: for each index in so->child_pids (i.e. up to NUM_CHILD_PROCESSES)
+    pid = fork();
+    if (pid > 0) // Parent
+    {
+        // TODO: Save to array at where pid is 0 (it is 0 because of calloc)
+        
+        so->parent = (struct parent_struct *) Mmm_calloc(1, sizeof(struct parent_struct), co->mm);
+        if (!so->parent)
+        {
+            // TODO: do something complicated
+        }
+        so->child = NULL; // Here for clarity; will already be null.
+    
+        p_open_process_server_for_listen(co, so->parent, &so->listen_addr); // Listen on parent
+    }
+    else if (pid == 0) // Child
+    {
+        so->parent = NULL; // Here for clarity; will already be null.
+        so->child = (struct child_struct *) Mmm_calloc(1, sizeof(struct child_struct), co->mm);
+        if (!so->child)
+        {
+            // TODO: do something complicated
+        }
+    }
     
     return 0;
 }
 
-int run_process_server(struct core_object *co)
+int p_run_process_server(struct core_object *co)
 {
+    // TODO: in this function the server process (parent) will poll active sockets then send them to the children.
     
+    return 0;
+}
+
+int c_run_process_server(struct core_object *co)
+{
+    // TODO: in this function the child process will look for action on the domain socket, read a socket, then send the parent fd through the pipe when reading is done.
     
     return 0;
 }
@@ -125,7 +133,7 @@ void destroy_process_state(struct core_object *co, struct state_object *so)
     
     // TODO: here is where we must tie up all of the processes. perhaps use signals?
     
-    close_fd_report_undefined_error(so->listen_fd, "state of listen socket is undefined.");
+    close_fd_report_undefined_error(so->parent->listen_fd, "state of listen socket is undefined.");
     
     for (size_t sfd_num = 0; sfd_num < MAX_CONNECTIONS; ++sfd_num)
     {

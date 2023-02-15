@@ -12,6 +12,7 @@ set(INCLUDE_DIR include)
 set(SOURCE_LIST
         ${SOURCE_DIR}/api_functions.c
         ${SOURCE_DIR}/process_server.c
+        ${SOURCE_DIR}/setup.c
         #=vvvv= SOURCE FOR DUMMY MAIN =vvvv=#
         ${SOURCE_DIR}/test_main.c
         ../core/src/util.c
@@ -19,6 +20,7 @@ set(SOURCE_LIST
 set(HEADER_LIST
         ${INCLUDE_DIR}/objects.h
         ${INCLUDE_DIR}/process_server.h
+        ${INCLUDE_DIR}/setup.h
         ../api_functions.h
         #=vvvv= INCLUDES FOR DUMMY MAIN =vvvv=#
         ../core/include/util.h
