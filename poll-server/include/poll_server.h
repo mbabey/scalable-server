@@ -1,9 +1,6 @@
 #ifndef SCALABLE_SERVER_POLL_SERVER_H
 #define SCALABLE_SERVER_POLL_SERVER_H
 
-#include <mem_manager/manager.h>
-#include <netinet/in.h>
-
 /**
  * setup_poll_state
  * <p>
