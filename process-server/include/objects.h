@@ -41,6 +41,9 @@ struct child_struct
 struct parent_struct
 {
     int listen_fd;
+    int client_fd[MAX_CONNECTIONS];
+    struct sockaddr_in client_addr[MAX_CONNECTIONS];
+    size_t num_connections;
 };
 
 #endif //SCALABLE_SERVER_PROCESS_OBJECTS_H
