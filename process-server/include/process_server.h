@@ -1,17 +1,14 @@
-#ifndef SCALABLE_SERVER_POLL_SERVER_H
-#define SCALABLE_SERVER_POLL_SERVER_H
-
-#include <mem_manager/manager.h>
-#include <netinet/in.h>
+#ifndef PROCESS_SERVER_PROCESS_SERVER_H
+#define PROCESS_SERVER_PROCESS_SERVER_H
 
 /**
- * setup_poll_state
- * <p>
- * Set up the state object for the one-to-one server. Add it to the memory manager.
- * </p>
- * @param mm the memory manager to which the state object will be added
- * @return the state object, or NULL and set errno on failure
- */
+* setup_poll_state
+* <p>
+        * Set up the state object for the one-to-one server. Add it to the memory manager.
+* </p>
+* @param mm the memory manager to which the state object will be added
+* @return the state object, or NULL and set errno on failure
+*/
 struct state_object *setup_poll_state(struct memory_manager *mm);
 
 /**
@@ -49,4 +46,4 @@ int run_poll_server(struct core_object *co);
  */
 void destroy_poll_state(struct core_object *co, struct state_object *so);
 
-#endif //SCALABLE_SERVER_POLL_SERVER_H
+#endif //PROCESS_SERVER_PROCESS_SERVER_H

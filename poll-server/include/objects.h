@@ -3,7 +3,15 @@
 
 #include "../../core/include/objects.h"
 
+/**
+ * The maximum number of connections that can be accepted by the poll server.
+ */
 #define MAX_CONNECTIONS 5
+
+/**
+ * The number of connections that can be queued on the listening socket.
+ */
+#define CONNECTION_QUEUE 100
 
 struct state_object {
     int listen_fd;
