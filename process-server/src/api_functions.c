@@ -8,18 +8,7 @@ int initialize_server(struct core_object *co)
     DC_TRACE(co->env);
     printf("INIT POLL SERVER\n");
     
-    co->so = setup_process_state(co->mm);
-    if (!co->so)
-    {
-        return ERROR;
-    }
-    
-    // TODO: Open domain socket, setup semaphores.
-    
-    
-    // TODO: fork
-    
-    if (open_process_server_for_listen(co, co->so->parent, &co->listen_addr) == -1)
+    if (setup_process_server(co, co->so) == -1)
     {
         return ERROR;
     }
@@ -32,7 +21,7 @@ int run_server(struct core_object *co)
     DC_TRACE(co->env);
     printf("RUN POLL SERVER\n");
     
-    if (p_run_process_server(co) == -1)
+    if (run_process_server(co, co->so) == -1)
     {
         return ERROR;
     }

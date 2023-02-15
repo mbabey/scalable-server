@@ -17,27 +17,16 @@
 int setup_process_server(struct core_object *co, struct state_object *so);
 
 /**
- * p_run_process_server
+ * run_process_server
  * <p>
  * Run the process server. Wait for activity on one of the processed sockets; if activity
  * is on the listen socket, accept a new connection. If activity is on any other socket,
- * handle that message.
+ * handle that message by sending to one of the free child labourer processes.
  * </p>
  * @param co the core object
  * @return 0 on success, -1 and set errno on failure
  */
-int p_run_process_server(struct core_object *co);
-
-/**
- * c_run_process_server
- * <p>
- * Look for action on the domain socket, read the sent client socket, then send the client fd known by the parent
- * through the pipe when reading is done.
- * </p>
- * @param co the core_object
- * @return 0 on success, -1 and set errno on failure
- */
-int c_run_process_server(struct core_object *co);
+int run_process_server(struct core_object *co, struct state_object *so);
 
 /**
  * destroy_process_state

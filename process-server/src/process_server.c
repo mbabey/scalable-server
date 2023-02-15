@@ -23,6 +23,29 @@ volatile int GOGO_PROCESS = 1;
 // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 /**
+ * p_run_poll_loop
+ * <p>
+ * Run the process server. Wait for activity on one of the processed sockets; if activity
+ * is on the listen socket, accept a new connection. If activity is on any other socket,
+ * handle that message.
+ * </p>
+ * @param co the core object
+ * @return 0 on success, -1 and set errno on failure
+ */
+static int p_run_poll_loop(struct core_object *co, struct state_object *so);
+
+/**
+ * c_receive_log_respond
+ * <p>
+ * Look for action on the domain socket, read the sent client socket, then send the client fd known by the parent
+ * through the pipe when reading is done.
+ * </p>
+ * @param co the core_object
+ * @return 0 on success, -1 and set errno on failure
+ */
+static int c_receive_log_respond(struct core_object *co, struct state_object *so);
+
+/**
  * setup_signal_handler
  * @param sa sigaction struct to fill
  * @return 0 on success, -1 and set errno on failure
@@ -50,6 +73,8 @@ static void close_fd_report_undefined_error(int fd, const char *err_msg);
 
 int setup_process_server(struct core_object *co, struct state_object *so)
 {
+    DC_TRACE(co->env);
+    
     so = setup_process_state(co->mm); // fixme: Will this allocate to the address in co? I think so, but not sure.
     if (!so)
     {
@@ -75,13 +100,12 @@ int setup_process_server(struct core_object *co, struct state_object *so)
             // TODO: do something complicated
         }
         so->child = NULL; // Here for clarity; will already be null.
-    
+        
         p_open_process_server_for_listen(co, so->parent, &so->listen_addr); // Listen on parent
-    }
-    else if (pid == 0) // Child
+    } else if (pid == 0) // Child
     {
         so->parent = NULL; // Here for clarity; will already be null.
-        so->child = (struct child_struct *) Mmm_calloc(1, sizeof(struct child_struct), co->mm);
+        so->child  = (struct child_struct *) Mmm_calloc(1, sizeof(struct child_struct), co->mm);
         if (!so->child)
         {
             // TODO: do something complicated
@@ -91,15 +115,33 @@ int setup_process_server(struct core_object *co, struct state_object *so)
     return 0;
 }
 
-int p_run_process_server(struct core_object *co)
+int run_process_server(struct core_object *co, struct state_object *so)
 {
+    DC_TRACE(co->env);
+    
+    // In parent, child will be NULL. In child, parent will be NULL. This behaviour can be used to identify if child or parent.
+    if (so->parent)
+    {
+        p_run_poll_loop(co, so);
+    } else if (so->child)
+    {
+        c_receive_log_respond(co, so);
+    }
+    
+    return 0;
+}
+
+static int p_run_poll_loop(struct core_object *co, struct state_object *so)
+{
+    DC_TRACE(co->env);
     // TODO: in this function the server process (parent) will poll active sockets then send them to the children.
     
     return 0;
 }
 
-int c_run_process_server(struct core_object *co)
+static int c_receive_log_respond(struct core_object *co, struct state_object *so) // fixme: needs a more accurate name.
 {
+    DC_TRACE(co->env);
     // TODO: in this function the child process will look for action on the domain socket, read a socket, then send the parent fd through the pipe when reading is done.
     
     return 0;
@@ -137,7 +179,7 @@ void destroy_process_state(struct core_object *co, struct state_object *so)
     
     for (size_t sfd_num = 0; sfd_num < MAX_CONNECTIONS; ++sfd_num)
     {
-        close_fd_report_undefined_error(*(so->client_fd + sfd_num), "state of client socket is undefined.");
+        close_fd_report_undefined_error(*(so->parent->client_fds + sfd_num), "state of client socket is undefined.");
     }
 }
 
