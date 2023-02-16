@@ -19,13 +19,22 @@
  */
 #define CONNECTION_QUEUE 100
 
+/**
+ * Read end of child_finished_pipe or read child_finished_semaphore.
+ */
+#define READ 0
+
+/**
+ * Write end of child_finished_pipe or read child_finished_semaphore.
+ */
+#define WRITE 1
+
 struct state_object
 {
     pid_t                child_pids[NUM_CHILD_PROCESSES];
-    int                  read_finished_pipe_fds[2];
-    sem_t                read_finished_pipe_sem_r;
-    sem_t                read_finished_pipe_sem_w;
-    sem_t                log_sem_w;
+    int                  child_finished_pipe_fds[2];
+    sem_t                *child_finished_pipe_sems[2];
+    sem_t                *log_sem_w;
     int                  domain_fd;
     struct child_struct  *child;
     struct parent_struct *parent;
