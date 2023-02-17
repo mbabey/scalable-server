@@ -98,7 +98,6 @@ int setup_process_server(struct core_object *co, struct state_object *so)
         pid = fork();
         if (pid == -1)
         {
-            // TODO: signal and wait for all processes to terminate (in destroy state)
             return -1; // will go to ERROR state.
         }
         so->child_pids[c] = pid;
@@ -108,7 +107,7 @@ int setup_process_server(struct core_object *co, struct state_object *so)
             so->child  = (struct child_struct *) Mmm_calloc(1, sizeof(struct child_struct), co->mm);
             if (!so->child)
             {
-                // TODO: do something complicated
+                return -1; // Will go to ERROR state in child process.
             }
         }
     }
@@ -117,10 +116,9 @@ int setup_process_server(struct core_object *co, struct state_object *so)
         so->parent = (struct parent_struct *) Mmm_calloc(1, sizeof(struct parent_struct), co->mm);
         if (!so->parent)
         {
-            // TODO: do something complicated
+            return -1;
         }
         so->child = NULL; // Here for clarity; will already be null.
-        p_open_process_server_for_listen(co, so->parent, &so->listen_addr); // Listen on parent
     }
     
     return 0;
@@ -133,6 +131,7 @@ int run_process_server(struct core_object *co, struct state_object *so)
     // In parent, child will be NULL. In child, parent will be NULL. This behaviour can be used to identify if child or parent.
     if (so->parent)
     {
+        p_open_process_server_for_listen(co, so->parent, &co->listen_addr);
         p_run_poll_loop(co, so);
     } else if (so->child)
     {

@@ -34,6 +34,6 @@ int open_domain_socket_setup_semaphores(struct core_object *co, struct state_obj
  * @param listen_addr the address on which to listen
  * @return 0 on success, -1 and set errno on failure
  */
-static int p_open_process_server_for_listen(struct core_object *co, struct parent_struct *parent, struct sockaddr_in *listen_addr);
+int p_open_process_server_for_listen(struct core_object *co, struct parent_struct *parent, struct sockaddr_in *listen_addr);
 
 #endif //PROCESS_SERVER_SETUP_H
