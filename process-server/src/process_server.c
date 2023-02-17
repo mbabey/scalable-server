@@ -71,7 +71,8 @@ static void end_gogo_handler(int signal);
  * p_destroy_parent_state
  * <p>
  * Perform actions necessary to close the parent process: signal all child processes to end,
- * close pipe end, close UNIX socket connection, close active connections, free allocated memory.
+ * close pipe read end, close UNIX socket connection, close active connections, close semaphores,
+ * free allocated memory.
  * </p>
  * @param co the core object
  * @param parent the parent struct
@@ -81,7 +82,7 @@ static void p_destroy_parent_state(struct core_object *co, struct state_object *
 /**
  * c_destroy_child_state
  * <p>
- * Perform actions necessary to close the child process: close pipe end, close
+ * Perform actions necessary to close the child process: close pipe write end, close
  * UNIX socket connection, free allocated memory.
  * </p>
  * @param co the core object
@@ -222,7 +223,6 @@ void destroy_process_state(struct core_object *co, struct state_object *so)
 
 static void p_destroy_parent_state(struct core_object *co, struct state_object *so, struct parent_struct *parent)
 {
-    // TODO: here is where we must tie up all of the processes/threads. perhaps use signals?
     int status;
     
     FOR_EACH_CHILD_c // Send signals to child processes real quick.
@@ -234,6 +234,8 @@ static void p_destroy_parent_state(struct core_object *co, struct state_object *
         waitpid(so->child_pids[c], &status, 0);
     }
     
+    close_fd_report_undefined_error(so->child_finished_pipe_fds[READ], "state of pipe read is undefined.");
+    close_fd_report_undefined_error(so->domain_fd, "state of domain socket is undefined.");
     close_fd_report_undefined_error(parent->listen_fd, "state of listen socket is undefined.");
     
     for (size_t sfd_num = 0; sfd_num < MAX_CONNECTIONS; ++sfd_num)
@@ -242,13 +244,17 @@ static void p_destroy_parent_state(struct core_object *co, struct state_object *
     }
     
     co->mm->mm_free(co->mm, parent);
+    
+    sem_close(so->child_finished_pipe_sems[READ]);
+    sem_close(so->child_finished_pipe_sems[WRITE]);
+//    sem_unlink(READ_SEM_NAME);
+//    sem_unlink(WRITE_SEM_NAME);
 }
 
 static void c_destroy_child_state(struct core_object *co, struct child_struct *child)
 {
 
 }
-
 
 static void close_fd_report_undefined_error(int fd, const char *err_msg)
 {
