@@ -14,6 +14,7 @@
 #include <sys/types.h>  // back compatability
 #include <time.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 /**
  * For each loop macro for looping over child processes.
@@ -65,6 +66,28 @@ static int setup_signal_handler(struct sigaction *sa, int signal);
  * @param signal the signal received
  */
 static void end_gogo_handler(int signal);
+
+/**
+ * p_destroy_parent_state
+ * <p>
+ * Perform actions necessary to close the parent process: signal all child processes to end,
+ * close pipe end, close UNIX socket connection, close active connections, free allocated memory.
+ * </p>
+ * @param co the core object
+ * @param parent the parent struct
+ */
+static void p_destroy_parent_state(struct core_object *co, struct state_object *so, struct parent_struct *parent);
+
+/**
+ * c_destroy_child_state
+ * <p>
+ * Perform actions necessary to close the child process: close pipe end, close
+ * UNIX socket connection, free allocated memory.
+ * </p>
+ * @param co the core object
+ * @param child the child struct
+ */
+static void c_destroy_child_state(struct core_object *co, struct child_struct *child);
 
 /**
  * close_fd_report_undefined_error
@@ -188,15 +211,44 @@ void destroy_process_state(struct core_object *co, struct state_object *so)
 {
     DC_TRACE(co->env);
     
+    if (so->parent)
+    {
+        p_destroy_parent_state(co, so, so->parent);
+    } else if (so->child)
+    {
+        c_destroy_child_state(co, so->child);
+    }
+}
+
+static void p_destroy_parent_state(struct core_object *co, struct state_object *so, struct parent_struct *parent)
+{
     // TODO: here is where we must tie up all of the processes/threads. perhaps use signals?
+    int status;
     
-    close_fd_report_undefined_error(so->parent->listen_fd, "state of listen socket is undefined.");
+    FOR_EACH_CHILD_c // Send signals to child processes real quick.
+    {
+        kill(so->child_pids[c], SIGINT);
+    }
+    FOR_EACH_CHILD_c // Wait for child processes to wrap up.
+    {
+        waitpid(so->child_pids[c], &status, 0);
+    }
+    
+    close_fd_report_undefined_error(parent->listen_fd, "state of listen socket is undefined.");
     
     for (size_t sfd_num = 0; sfd_num < MAX_CONNECTIONS; ++sfd_num)
     {
-        close_fd_report_undefined_error(*(so->parent->client_fds + sfd_num), "state of client socket is undefined.");
+        close_fd_report_undefined_error(*(parent->client_fds + sfd_num), "state of client socket is undefined.");
     }
+    
+    co->mm->mm_free(co->mm, parent);
 }
+
+static void c_destroy_child_state(struct core_object *co, struct child_struct *child)
+{
+
+}
+
 
 static void close_fd_report_undefined_error(int fd, const char *err_msg)
 {
