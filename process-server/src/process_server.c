@@ -15,6 +15,11 @@
 #include <time.h>
 #include <unistd.h>
 
+/**
+ * For each loop macro for looping over child processes.
+ */
+#define FOR_EACH_CHILD_c for (size_t c = 0; c < NUM_CHILD_PROCESSES; ++c)
+
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): must be non-const
 /**
  * Whether the loop at the heart of the program should be running.
@@ -75,7 +80,7 @@ int setup_process_server(struct core_object *co, struct state_object *so)
 {
     DC_TRACE(co->env);
     
-    so = setup_process_state(co->mm); // fixme: Will this allocate to the address in co? I think so, but not sure.
+    so = setup_process_state(co->mm);
     if (!so)
     {
         return -1;
@@ -87,29 +92,35 @@ int setup_process_server(struct core_object *co, struct state_object *so)
     }
     
     pid_t pid;
-    
-    // TODO: for each index in so->child_pids (i.e. up to NUM_CHILD_PROCESSES)
-    pid = fork();
-    if (pid > 0) // Parent
+    memset(so->child_pids, 1, sizeof(so->child_pids));
+    for (size_t c = 0; c < NUM_CHILD_PROCESSES && so->child_pids[c] != 0; ++c)
     {
-        // TODO: Save to array at where pid is 0 (it is 0 because of calloc)
-        
+        pid = fork();
+        if (pid == -1)
+        {
+            // TODO: signal and wait for all processes to terminate (in destroy state)
+            return -1; // will go to ERROR state.
+        }
+        so->child_pids[c] = pid;
+        if (pid == 0)
+        {
+            so->parent = NULL; // Here for clarity; will already be null.
+            so->child  = (struct child_struct *) Mmm_calloc(1, sizeof(struct child_struct), co->mm);
+            if (!so->child)
+            {
+                // TODO: do something complicated
+            }
+        }
+    }
+    if (pid > 0)
+    {
         so->parent = (struct parent_struct *) Mmm_calloc(1, sizeof(struct parent_struct), co->mm);
         if (!so->parent)
         {
             // TODO: do something complicated
         }
         so->child = NULL; // Here for clarity; will already be null.
-        
         p_open_process_server_for_listen(co, so->parent, &so->listen_addr); // Listen on parent
-    } else if (pid == 0) // Child
-    {
-        so->parent = NULL; // Here for clarity; will already be null.
-        so->child  = (struct child_struct *) Mmm_calloc(1, sizeof(struct child_struct), co->mm);
-        if (!so->child)
-        {
-            // TODO: do something complicated
-        }
     }
     
     return 0;

@@ -7,7 +7,7 @@
 /**
  * The number of worker processes to be spawned to handle network requests.
  */
-#define NUM_CHILD_PROCESSES 4 // Must be a power of 2 for magic indexing purposes. fixme: maybe not...
+#define NUM_CHILD_PROCESSES 4 // Must be a power of 2 for magic indexing purposes.
 
 /**
  * The maximum number of connections that can be accepted by the process server.
