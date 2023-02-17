@@ -88,7 +88,7 @@ static void p_destroy_parent_state(struct core_object *co, struct state_object *
  * @param co the core object
  * @param child the child struct
  */
-static void c_destroy_child_state(struct core_object *co, struct child_struct *child);
+static void c_destroy_child_state(struct core_object *co, struct state_object *so, struct child_struct *child);
 
 /**
  * close_fd_report_undefined_error
@@ -217,7 +217,7 @@ void destroy_process_state(struct core_object *co, struct state_object *so)
         p_destroy_parent_state(co, so, so->parent);
     } else if (so->child)
     {
-        c_destroy_child_state(co, so->child);
+        c_destroy_child_state(co, NULL, so->child);
     }
 }
 
@@ -251,9 +251,11 @@ static void p_destroy_parent_state(struct core_object *co, struct state_object *
 //    sem_unlink(WRITE_SEM_NAME);
 }
 
-static void c_destroy_child_state(struct core_object *co, struct child_struct *child)
+static void c_destroy_child_state(struct core_object *co, struct state_object *so, struct child_struct *child)
 {
-
+    close_fd_report_undefined_error(so->child_finished_pipe_fds[WRITE], "state of pipe write is undefined.");
+    
+    co->mm->mm_free(co->mm, child);
 }
 
 static void close_fd_report_undefined_error(int fd, const char *err_msg)
