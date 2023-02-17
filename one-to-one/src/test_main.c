@@ -51,7 +51,7 @@ int main(void)
             {
                 // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
                 (void) fprintf(stderr, "Fatal: error during server runtime: %s\n", strerror(errno));
-                run = 0;
+                next_state = close_server(&co);
                 break;
             }
             case EXIT:
