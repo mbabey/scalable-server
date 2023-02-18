@@ -1,6 +1,6 @@
 #include "../include/objects.h"
 #include "../include/process_server.h"
-#include "../include/setup.h"
+#include "../include/setup_teardown.h"
 
 #include <arpa/inet.h>
 #include <dc_env/env.h>
@@ -15,11 +15,6 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/wait.h>
-
-/**
- * For each loop macro for looping over child processes.
- */
-#define FOR_EACH_CHILD_c for (size_t c = 0; c < NUM_CHILD_PROCESSES; ++c)
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): must be non-const
 /**
@@ -66,39 +61,6 @@ static int setup_signal_handler(struct sigaction *sa, int signal);
  * @param signal the signal received
  */
 static void end_gogo_handler(int signal);
-
-/**
- * p_destroy_parent_state
- * <p>
- * Perform actions necessary to close the parent process: signal all child processes to end,
- * close pipe read end, close UNIX socket connection, close active connections, close semaphores,
- * free allocated memory.
- * </p>
- * @param co the core object
- * @param parent the parent struct
- */
-static void p_destroy_parent_state(struct core_object *co, struct state_object *so, struct parent_struct *parent);
-
-/**
- * c_destroy_child_state
- * <p>
- * Perform actions necessary to close the child process: close pipe write end, close
- * UNIX socket connection, free allocated memory.
- * </p>
- * @param co the core object
- * @param child the child struct
- */
-static void c_destroy_child_state(struct core_object *co, struct state_object *so, struct child_struct *child);
-
-/**
- * close_fd_report_undefined_error
- * <p>
- * Close a file descriptor and report an error which would make the file descriptor undefined.
- * </p>
- * @param fd the fd to close
- * @param err_msg the error message to print
- */
-static void close_fd_report_undefined_error(int fd, const char *err_msg);
 
 int setup_process_server(struct core_object *co, struct state_object *so)
 {
@@ -218,62 +180,5 @@ void destroy_process_state(struct core_object *co, struct state_object *so)
     } else if (so->child)
     {
         c_destroy_child_state(co, NULL, so->child);
-    }
-}
-
-static void p_destroy_parent_state(struct core_object *co, struct state_object *so, struct parent_struct *parent)
-{
-    int status;
-    
-    FOR_EACH_CHILD_c // Send signals to child processes real quick.
-    {
-        kill(so->child_pids[c], SIGINT);
-    }
-    FOR_EACH_CHILD_c // Wait for child processes to wrap up.
-    {
-        waitpid(so->child_pids[c], &status, 0);
-    }
-    
-    close_fd_report_undefined_error(so->child_finished_pipe_fds[READ], "state of pipe read is undefined.");
-    close_fd_report_undefined_error(so->domain_fd, "state of domain socket is undefined.");
-    close_fd_report_undefined_error(parent->listen_fd, "state of listen socket is undefined.");
-    
-    for (size_t sfd_num = 0; sfd_num < MAX_CONNECTIONS; ++sfd_num)
-    {
-        close_fd_report_undefined_error(*(parent->client_fds + sfd_num), "state of client socket is undefined.");
-    }
-    
-    co->mm->mm_free(co->mm, parent);
-    
-    sem_close(so->child_finished_pipe_sems[READ]);
-    sem_close(so->child_finished_pipe_sems[WRITE]);
-//    sem_unlink(READ_SEM_NAME);
-//    sem_unlink(WRITE_SEM_NAME);
-}
-
-static void c_destroy_child_state(struct core_object *co, struct state_object *so, struct child_struct *child)
-{
-    close_fd_report_undefined_error(so->child_finished_pipe_fds[WRITE], "state of pipe write is undefined.");
-    
-    co->mm->mm_free(co->mm, child);
-}
-
-static void close_fd_report_undefined_error(int fd, const char *err_msg)
-{
-    if (close(fd) == -1)
-    {
-        switch (errno)
-        {
-            case EBADF: // Not a problem.
-            {
-                errno = 0;
-                break;
-            }
-            default:
-            {
-                // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
-                (void) fprintf(stderr, "Error: %s; %s\n", strerror(errno), err_msg);
-            }
-        }
     }
 }
