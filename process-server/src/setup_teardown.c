@@ -8,6 +8,27 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+/**
+ * open_semaphores
+ * <p>
+ * Open the read, write, and log semaphores. If an error occurs opening any one of them, close them all.
+ * </p>
+ * @param pipe_sems read/write pipe semaphores
+ * @param log_sem log file semaphore
+ * @return 0 on success, set errno and -1 on failure
+ */
+static int open_semaphores(sem_t **pipe_sems, sem_t *log_sem);
+
+/**
+ * open_domain_sockets
+ * <p>
+ * Open a connected pair of domain sockets.
+ * </p>
+ * @param domain_fds file descriptor array for domain sockets
+ * @return 0 on success, -1 and set errno of failure
+ */
+static int open_domain_sockets(int **domain_fds);
+
 struct state_object *setup_process_state(struct memory_manager *mm)
 {
     struct state_object *so;
@@ -21,45 +42,49 @@ struct state_object *setup_process_state(struct memory_manager *mm)
     return so;
 }
 
-int setup_semaphores(struct state_object *so);
-
-int open_domain_socket_setup_semaphores(struct core_object *co, struct state_object *so)
+int open_pipe_semaphores_domain_sockets(struct core_object *co, struct state_object *so)
 {
     // TODO: open the domain socket?
     DC_TRACE(co->env);
     
-    if (pipe(so->c_to_p_pipe_fds) == -1)
+    if (pipe(so->c_to_p_pipe_fds) == -1) // Open pipe.
     {
         return -1;
     }
     
-    if (setup_semaphores(so) == -1)
+    if (open_semaphores(so->c_to_f_pipe_sems, so->log_sem) == -1)
     {
-        return -1
+        return -1;
+    }
+    
+    if (open_domain_sockets(so->domain_fds) == -1)
+    {
+        return -1;
     }
     
     return 0;
 }
 
-int setup_semaphores(struct state_object *so)
+static int open_semaphores(sem_t **pipe_sems, sem_t *log_sem)
 {
-    sem_t *sem_r;
-    sem_t *sem_w;
-    sem_t *sem_l;
-    
-    sem_r = sem_open(READ_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
-    sem_w = sem_open(WRITE_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
-    sem_l = sem_open(LOG_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
-    if (sem_r == SEM_FAILED || sem_w == SEM_FAILED || sem_l == SEM_FAILED)
+    pipe_sems[READ] = sem_open(READ_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
+    pipe_sems[WRITE] = sem_open(WRITE_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
+    log_sem = sem_open(LOG_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
+    if (pipe_sems[READ] == SEM_FAILED || pipe_sems[WRITE] == SEM_FAILED || log_sem == SEM_FAILED)
     {
-        sem_close(sem_r);
-        sem_close(sem_w);
-        sem_close(sem_l);
+        // Closing an unopened semaphore will return -1 and set errno = EINVAL, which can be ignored.
+        sem_close(pipe_sems[READ]);
+        sem_close(pipe_sems[WRITE]);
+        sem_close(log_sem);
         return -1;
     }
-    so->c_to_f_pipe_sems[READ]  = sem_r;
-    so->c_to_f_pipe_sems[WRITE] = sem_w;
-    so->log_sem = sem_l;
+
+    return 0;
+}
+
+static int open_domain_sockets(int **domain_fds)
+{
+    
     
     return 0;
 }
@@ -121,8 +146,10 @@ void p_destroy_parent_state(struct core_object *co, struct state_object *so, str
     
     sem_close(so->c_to_f_pipe_sems[READ]);
     sem_close(so->c_to_f_pipe_sems[WRITE]);
+    sem_close(so->log_sem);
     sem_unlink(READ_SEM_NAME);
     sem_unlink(WRITE_SEM_NAME);
+    sem_unlink(LOG_SEM_NAME);
 }
 
 void c_destroy_child_state(struct core_object *co, struct state_object *so, struct child_struct *child)

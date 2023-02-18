@@ -14,14 +14,14 @@
 struct state_object *setup_process_state(struct memory_manager *mm);
 
 /**
- * open_domain_socket_setup_semaphores
+ * open_pipe_semaphores_domain_sockets
  * <p>
  * Open the domain socket and set up the semaphores for controlling access to the child-parent pipe and the log
  * file.
  * </p>
  * @return 0 on success, -1 and set errno on failure
  */
-int open_domain_socket_setup_semaphores(struct core_object *co, struct state_object *so);
+int open_pipe_semaphores_domain_sockets(struct core_object *co, struct state_object *so);
 
 /**
  * p_open_process_server_for_listen

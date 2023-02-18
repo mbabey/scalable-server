@@ -72,7 +72,7 @@ int setup_process_server(struct core_object *co, struct state_object *so)
         return -1;
     }
     
-    if (open_domain_socket_setup_semaphores(co, so) == -1)
+    if (open_pipe_semaphores_domain_sockets(co, so) == -1)
     {
         return -1;
     }

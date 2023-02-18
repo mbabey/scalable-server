@@ -53,10 +53,10 @@
 struct state_object
 {
     pid_t                child_pids[NUM_CHILD_PROCESSES];
+    int                  domain_fds[2];
     int                  c_to_p_pipe_fds[2];
     sem_t                *c_to_f_pipe_sems[2];
     sem_t                *log_sem;
-    int                  domain_fd;
     struct child_struct  *child;
     struct parent_struct *parent;
     struct sockaddr_in   listen_addr;
