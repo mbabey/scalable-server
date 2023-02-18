@@ -21,28 +21,45 @@ struct state_object *setup_process_state(struct memory_manager *mm)
     return so;
 }
 
+int setup_semaphores(struct state_object *so);
+
 int open_domain_socket_setup_semaphores(struct core_object *co, struct state_object *so)
 {
     // TODO: open the domain socket?
     DC_TRACE(co->env);
-    sem_t *sem_r;
-    sem_t *sem_w;
     
     if (pipe(so->c_to_p_pipe_fds) == -1)
     {
         return -1;
     }
     
+    if (setup_semaphores(so) == -1)
+    {
+        return -1
+    }
+    
+    return 0;
+}
+
+int setup_semaphores(struct state_object *so)
+{
+    sem_t *sem_r;
+    sem_t *sem_w;
+    sem_t *sem_l;
+    
     sem_r = sem_open(READ_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
     sem_w = sem_open(WRITE_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
-    if (sem_r == SEM_FAILED || sem_w == SEM_FAILED)
+    sem_l = sem_open(LOG_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
+    if (sem_r == SEM_FAILED || sem_w == SEM_FAILED || sem_l == SEM_FAILED)
     {
         sem_close(sem_r);
         sem_close(sem_w);
+        sem_close(sem_l);
         return -1;
     }
     so->c_to_f_pipe_sems[READ]  = sem_r;
     so->c_to_f_pipe_sems[WRITE] = sem_w;
+    so->log_sem = sem_l;
     
     return 0;
 }

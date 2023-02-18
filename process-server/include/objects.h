@@ -38,19 +38,24 @@
 /**
 * Read semaphore name.
 */
-#define READ_SEM_NAME "/r_206a08"
+#define READ_SEM_NAME "/r_206a08" // Random hex to prevent collision of this filename with others.
 
 /**
 * Write semaphore name.
 */
-#define WRITE_SEM_NAME "/w_e37737"
+#define WRITE_SEM_NAME "/w_206a08"
+
+/**
+* Log semaphore name.
+*/
+#define LOG_SEM_NAME "/l_206a08"
 
 struct state_object
 {
     pid_t                child_pids[NUM_CHILD_PROCESSES];
     int                  c_to_p_pipe_fds[2];
     sem_t                *c_to_f_pipe_sems[2];
-    sem_t                *log_sem_w;
+    sem_t                *log_sem;
     int                  domain_fd;
     struct child_struct  *child;
     struct parent_struct *parent;
