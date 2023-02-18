@@ -62,6 +62,19 @@ static int setup_signal_handler(struct sigaction *sa, int signal);
  */
 static void end_gogo_handler(int signal);
 
+/**
+ * fork_child_processes
+ * <p>
+ * Fork the main process into the specified number of child processes. Save the child pids. Set the parent
+ * struct to NULL in the child and the child struct the NULL in the parent to identify whether a process
+ * is a parent or a child,
+ * </p>
+ * @param co the core object
+ * @param so the state object
+ * @return 0 on success, -1 and set errno on failure.
+ */
+static int fork_child_processes(struct core_object *co, struct state_object *so);
+
 int setup_process_server(struct core_object *co, struct state_object *so)
 {
     DC_TRACE(co->env);
@@ -77,6 +90,16 @@ int setup_process_server(struct core_object *co, struct state_object *so)
         return -1;
     }
     
+    if (fork_child_processes(co, so) == -1)
+    {
+        return -1;
+    }
+    
+    return 0;
+}
+
+static int fork_child_processes(struct core_object *co, struct state_object *so)
+{
     pid_t pid;
     memset(so->child_pids, 1, sizeof(so->child_pids));
     for (size_t c = 0; c < NUM_CHILD_PROCESSES && so->child_pids[c] != 0; ++c)
