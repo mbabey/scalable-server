@@ -19,16 +19,6 @@
  */
 static int open_semaphores(sem_t *read_sem, sem_t *write_sem, sem_t *log_sem);
 
-/**
- * open_domain_sockets
- * <p>
- * Open a connected pair of domain sockets.
- * </p>
- * @param domain_fds file descriptor array for domain sockets
- * @return 0 on success, -1 and set errno of failure
- */
-static int open_domain_sockets(int *domain_fds);
-
 struct state_object *setup_process_state(struct memory_manager *mm)
 {
     struct state_object *so;
@@ -44,7 +34,6 @@ struct state_object *setup_process_state(struct memory_manager *mm)
 
 int open_pipe_semaphores_domain_sockets(struct core_object *co, struct state_object *so)
 {
-    // TODO: open the domain socket?
     DC_TRACE(co->env);
     
     if (pipe(so->c_to_p_pipe_fds) == -1) // Open pipe.
@@ -113,8 +102,6 @@ p_open_process_server_for_listen(struct core_object *co, struct parent_struct *p
         return -1;
     }
     
-    /* Only assign if absolute success. listen_fd == 0 can be used during teardown
-     * to determine whether there is a socket to close. */
     parent->listen_fd = fd;
     
     return 0;
