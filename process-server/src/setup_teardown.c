@@ -13,11 +13,11 @@
  * <p>
  * Open the read, write, and log semaphores. If an error occurs opening any one of them, close them all.
  * </p>
- * @param pipe_sems read/write pipe semaphores
+ * @param read_sem read/write pipe semaphores
  * @param log_sem log file semaphore
  * @return 0 on success, set errno and -1 on failure
  */
-static int open_semaphores(sem_t **pipe_sems, sem_t *log_sem);
+static int open_semaphores(sem_t *read_sem, sem_t *write_sem, sem_t *log_sem);
 
 /**
  * open_domain_sockets
@@ -27,7 +27,7 @@ static int open_semaphores(sem_t **pipe_sems, sem_t *log_sem);
  * @param domain_fds file descriptor array for domain sockets
  * @return 0 on success, -1 and set errno of failure
  */
-static int open_domain_sockets(int **domain_fds);
+static int open_domain_sockets(int *domain_fds);
 
 struct state_object *setup_process_state(struct memory_manager *mm)
 {
@@ -52,12 +52,12 @@ int open_pipe_semaphores_domain_sockets(struct core_object *co, struct state_obj
         return -1;
     }
     
-    if (open_semaphores(so->c_to_f_pipe_sems, so->log_sem) == -1)
+    if (open_semaphores(so->c_to_f_pipe_sems[READ], so->c_to_f_pipe_sems[WRITE], so->log_sem) == -1)
     {
         return -1;
     }
     
-    if (open_domain_sockets(so->domain_fds) == -1)
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, so->domain_fds) == -1) // lol I love linux
     {
         return -1;
     }
@@ -65,26 +65,26 @@ int open_pipe_semaphores_domain_sockets(struct core_object *co, struct state_obj
     return 0;
 }
 
-static int open_semaphores(sem_t **pipe_sems, sem_t *log_sem)
+static int open_semaphores(sem_t *read_sem, sem_t *write_sem, sem_t *log_sem)
 {
-    pipe_sems[READ] = sem_open(READ_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
-    pipe_sems[WRITE] = sem_open(WRITE_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
-    log_sem = sem_open(LOG_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
-    if (pipe_sems[READ] == SEM_FAILED || pipe_sems[WRITE] == SEM_FAILED || log_sem == SEM_FAILED)
+    read_sem  = sem_open(READ_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
+    write_sem = sem_open(WRITE_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
+    log_sem   = sem_open(LOG_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
+    if (read_sem == SEM_FAILED || write_sem == SEM_FAILED || log_sem == SEM_FAILED)
     {
+        int err_save;
+        err_save = errno;
         // Closing an unopened semaphore will return -1 and set errno = EINVAL, which can be ignored.
-        sem_close(pipe_sems[READ]);
-        sem_close(pipe_sems[WRITE]);
+        sem_close(read_sem);
+        sem_close(write_sem);
         sem_close(log_sem);
+        // Unlinking an unopened semaphore will return -1 and set errno = ENOENT, which can be ignored.
+        sem_unlink(READ_SEM_NAME);
+        sem_unlink(WRITE_SEM_NAME);
+        sem_unlink(LOG_SEM_NAME);
+        errno = err_save;
         return -1;
     }
-
-    return 0;
-}
-
-static int open_domain_sockets(int **domain_fds)
-{
-    
     
     return 0;
 }
