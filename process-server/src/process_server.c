@@ -261,6 +261,8 @@ static int fork_child_processes(struct core_object *co, struct state_object *so)
 
 int run_process_server(struct core_object *co, struct state_object *so)
 {
+    // TODO: error checking on -1 ret val in this function.
+    
     DC_TRACE(co->env);
     
     // In parent, child will be NULL. In child, parent will be NULL. This behaviour can be used to identify if child or parent.
@@ -574,6 +576,9 @@ static int c_receive_and_handle_messages(struct core_object *co, struct state_ob
     
     while (GOGO_PROCESS)
     {
+        // Clean the child struct.
+        memset(child, 0, sizeof(struct child_struct));
+        
         if (c_get_file_description_from_domain_socket(co, so, child) == -1)
         {
             return -1;
@@ -594,13 +599,7 @@ static int c_receive_and_handle_messages(struct core_object *co, struct state_ob
 static int c_get_file_description_from_domain_socket(struct core_object *co, struct state_object *so,
         struct child_struct *child)
 {
-    // TODO: get file description from domain socket, put it into the child struct.
     DC_TRACE(co->env);
-    
-    if (sem_wait(so->domain_sems[READ]) == -1)
-    {
-        return (errno == EINTR) ? 0 : -1;
-    }
     
     ssize_t        bytes_recv;
     struct msghdr  msghdr;
@@ -620,9 +619,14 @@ static int c_get_file_description_from_domain_socket(struct core_object *co, str
     msghdr.msg_control    = control_buffer; // Put the control buffer into the msghdr to receive.
     msghdr.msg_controllen = sizeof(control_buffer);
     
+    if (sem_wait(so->domain_sems[READ]) == -1) // Wait for the domain socket read semaphore.
+    {
+        return (errno == EINTR) ? 0 : -1;
+    }
+    
     bytes_recv = recvmsg(so->domain_fds[READ], &msghdr, 0);
     
-    sem_post(so->domain_sems[WRITE]);
+    sem_post(so->domain_sems[WRITE]); // Signal the domain socket write semaphore.
     
     if (bytes_recv == -1)
     {
@@ -639,12 +643,28 @@ static int c_recv_and_log(struct core_object *co, struct state_object *so, struc
 {
     // TODO: recv message from socket. Log message information.
     
+    
     return 0;
 }
 
 static int c_inform_parent_recv_finished(struct core_object *co, struct state_object *so, struct child_struct *child)
 {
-    // TODO: send the original fd over the parent-child pipe.
+    DC_TRACE(co->env);
+    ssize_t bytes_written;
+    
+    if (sem_wait(so->c_to_f_pipe_sems[WRITE]) == -1) // Wait for the pipe write semaphore.
+    {
+        return (errno == EINTR) ? 0 : -1;
+    }
+    
+    bytes_written = write(so->c_to_p_pipe_fds[WRITE], &child->client_fd_parent, sizeof(int));
+    
+    sem_post(so->c_to_f_pipe_sems[READ]); // Signal the pipe read semaphore.
+    
+    if (bytes_written == -1)
+    {
+        return -1;
+    }
     
     return 0;
 }
