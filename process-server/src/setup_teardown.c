@@ -60,11 +60,12 @@ int open_pipe_semaphores_domain_sockets(struct core_object *co, struct state_obj
 static int open_semaphores(sem_t *pipe_read_sem, sem_t *pipe_write_sem, sem_t *domain_read_sem, sem_t *domain_write_sem,
                            sem_t *log_sem)
 {
+    // Value 0 will block; value 1 will allow first process to enter, then behave as if value was 0.
     pipe_read_sem    = sem_open(PIPE_READ_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
-    pipe_write_sem   = sem_open(PIPE_WRITE_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
+    pipe_write_sem   = sem_open(PIPE_WRITE_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 1);
     domain_read_sem  = sem_open(DOMAIN_READ_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
-    domain_write_sem = sem_open(DOMAIN_WRITE_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
-    log_sem          = sem_open(LOG_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
+    domain_write_sem = sem_open(DOMAIN_WRITE_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 1);
+    log_sem          = sem_open(LOG_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 1);
     if (pipe_read_sem == SEM_FAILED || pipe_write_sem == SEM_FAILED
         || domain_read_sem == SEM_FAILED || domain_write_sem == SEM_FAILED
         || log_sem == SEM_FAILED)

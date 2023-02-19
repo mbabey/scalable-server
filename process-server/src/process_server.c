@@ -414,9 +414,11 @@ static int p_send_to_child(struct core_object *co, struct state_object *so, stru
 {
     DC_TRACE(co->env);
     
-    // send the active fd on the domain socket... yeah that's it
+    // Set up all the message header bullshit
     
-    so->
+    sem_wait(so->domain_sems[WRITE]);
+    // write on the domain socket
+    sem_post(so->domain_sems[READ]);
     
     return 0;
 }
