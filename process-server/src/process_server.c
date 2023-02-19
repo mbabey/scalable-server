@@ -481,7 +481,7 @@ static int p_send_to_child(struct core_object *co, struct state_object *so, stru
     memset(&iovec, 0, sizeof(struct iovec));
     memset(&control_buffer, 0, sizeof(control_buffer));
     
-    iovec.iov_base = &active_pollfd->fd; // The file descriptor to send.
+    iovec.iov_base = &active_pollfd->fd; // The original file descriptor number to send.
     iovec.iov_len  = sizeof(int);
     
     msghdr.msg_iov        = &iovec; // Put the IO vector in the msghdr to send.
@@ -498,6 +498,7 @@ static int p_send_to_child(struct core_object *co, struct state_object *so, stru
     cmsghdr->cmsg_level = SOL_SOCKET;
     cmsghdr->cmsg_type  = SCM_RIGHTS; // Indicates it is a file description being sent.
     cmsghdr->cmsg_len   = CMSG_LEN(sizeof(int));
+    *((int *) CMSG_DATA(cmsghdr)) = active_pollfd->fd; // The file description to send.
     
     if (sem_wait(so->domain_sems[WRITE]) == -1)
     {
@@ -545,7 +546,7 @@ static int c_run_child_process(struct core_object *co, struct state_object *so)
     
     pid = getpid();
     
-    (void) fprintf(stdout, "Child process with pid %d started\n", pid);
+    (void) fprintf(stdout, "Child process with pid %d started.\n", pid);
     
     if (setup_signal_handler(&sigint, SIGINT) == -1)
     {
@@ -560,6 +561,8 @@ static int c_run_child_process(struct core_object *co, struct state_object *so)
     {
         return -1;
     }
+    
+    (void) fprintf(stdout, "Child process with pid %d winding down.\n", pid);
     
     return 0;
 }
@@ -592,6 +595,42 @@ static int c_get_file_description_from_domain_socket(struct core_object *co, str
         struct child_struct *child)
 {
     // TODO: get file description from domain socket, put it into the child struct.
+    DC_TRACE(co->env);
+    
+    if (sem_wait(so->domain_sems[READ]) == -1)
+    {
+        return (errno == EINTR) ? 0 : -1;
+    }
+    
+    ssize_t        bytes_recv;
+    struct msghdr  msghdr;
+    struct iovec   iovec;
+    struct cmsghdr *cmsghdr;
+    char           control_buffer[CMSG_SPACE(sizeof(int))]; // Create space for one cmsghdr storing an integer.
+    
+    memset(&msghdr, 0, sizeof(struct msghdr));
+    memset(&iovec, 0, sizeof(struct iovec));
+    memset(&control_buffer, 0, sizeof(control_buffer));
+    
+    iovec.iov_base = &child->client_fd_parent; // The original file descriptor.
+    iovec.iov_len  = sizeof(int);
+    
+    msghdr.msg_iov        = &iovec; // Put the IO vector in the msghdr to receive.
+    msghdr.msg_iovlen     = 1;
+    msghdr.msg_control    = control_buffer; // Put the control buffer into the msghdr to receive.
+    msghdr.msg_controllen = sizeof(control_buffer);
+    
+    bytes_recv = recvmsg(so->domain_fds[READ], &msghdr, 0);
+    
+    sem_post(so->domain_sems[WRITE]);
+    
+    if (bytes_recv == -1)
+    {
+        return -1;
+    }
+    
+    cmsghdr = CMSG_FIRSTHDR(&msghdr);
+    child->client_fd_local = *((int *) CMSG_DATA(cmsghdr)); // The file description.
     
     return 0;
 }
