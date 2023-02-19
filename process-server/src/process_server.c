@@ -413,11 +413,21 @@ static int p_send_to_child(struct core_object *co, struct state_object *so, stru
                            struct pollfd *active_pollfd, size_t conn_index)
 {
     DC_TRACE(co->env);
+    ssize_t bytes_sent;
     
     // Set up all the message header bullshit
+    // Add the parent fd int first
+    // Add the actual file descriptor struct second
     
-    sem_wait(so->domain_sems[WRITE]);
-    // write on the domain socket
+    if (sem_wait(so->domain_sems[WRITE]) == -1)
+    {
+        return (errno == EINTR) ? 0 : -1;
+    }
+    bytes_sent = sendmsg(so->domain_fds[WRITE], NULL, 0);
+    if (bytes_sent == -1)
+    {
+        return -1;
+    }
     sem_post(so->domain_sems[READ]);
     
     return 0;
