@@ -100,6 +100,19 @@ static int p_accept_new_connection(struct core_object *co, struct parent_struct 
 static int p_get_pollfd_index(const struct pollfd *pollfds);
 
 /**
+ * p_happy_dappy_communicappy
+ * <p>
+ * Read from all file descriptors in pollfds for which POLLIN is set.
+ * Remove all file descriptors in pollfds for which POLLHUP is set.
+ * </p>
+ * @param co the core object
+ * @param so the state object
+ * @param pollfds the pollfds array
+ * @return 0 on success, -1 and set errno on failure
+ */
+static int p_happy_dappy_communicappy(struct core_object *co, struct state_object *so, struct pollfd *pollfds);
+
+/**
  * c_receive_and_handle_messages
  * <p>
  * Look for action on the domain socket, read the sent client socket, then send the client fd known by the parent
@@ -225,13 +238,13 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so, stru
         // If action on the listen socket.
         if ((*pollfds).revents == POLLIN)
         {
-            if (p_accept_new_connection(co, so, pollfds) == -1)
+            if (p_accept_new_connection(co, so->parent, pollfds) == -1)
             {
                 return -1;
             }
         } else
         {
-            if (p_send_fd_to_child(co, so, pollfds) == -1)
+            if (p_happy_dappy_communicappy(co, so, pollfds) == -1) // Mom named it; can't change, sorry.
             {
                 return -1;
             }
@@ -337,6 +350,33 @@ static int p_get_pollfd_index(const struct pollfd *pollfds)
         }
     }
     return conn_index;
+}
+
+static int p_happy_dappy_communicappy(struct core_object *co, struct state_object *so, struct pollfd *pollfds)
+{
+    DC_TRACE(co->env);
+    struct pollfd *pollfd;
+    
+    for (size_t fd_num = 1; fd_num <= MAX_CONNECTIONS; ++fd_num)
+    {
+        pollfd = pollfds + fd_num;
+        if (pollfd->revents == POLLIN)
+        {
+            if (p_send_to_child(co, pollfd, fd_num) == -1)
+            {
+                return -1;
+            }
+            // NOLINTNEXTLINE(hicpp-signed-bitwise): never negative
+        } else if ((pollfd->revents & POLLHUP) || (pollfd->revents & POLLERR))
+            // Client has closed other end of socket.
+            // On MacOS, POLLHUP will be set; on Linux, POLLERR will be set.
+        {
+            (p_remove_connection(co, so, pollfd, fd_num - 1, pollfds));
+        }
+        pollfd->revents = 0;
+    }
+    
+    return 0;
 }
 
 static int c_receive_and_handle_messages(struct core_object *co, struct state_object *so)
