@@ -75,6 +75,16 @@ static void end_gogo_handler(int signal);
  */
 static int fork_child_processes(struct core_object *co, struct state_object *so);
 
+/**
+ * p_toggle_file_descriptors
+ * <p>
+ * Wait for the read semaphore to be signaled on the child-to-parent pipe. Invert the fd that is passed in the pipe.
+ * </p>
+ * @param arg the state object
+ * @return NULL
+ */
+static void *p_toggle_file_descriptors(void *arg);
+
 int setup_process_server(struct core_object *co, struct state_object *so)
 {
     DC_TRACE(co->env);
@@ -169,9 +179,10 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so)
     return 0;
 }
 
-static void *p_toggle_file_descriptor(void *arg)
+static void *p_toggle_file_descriptors(void *arg)
 {
     struct state_object *so = (struct state_object *) arg;
+    struct pollfd *pollfds = so->parent->client_pollfds;
     int                 fd;
     
     while (GOGO_PROCESS)
@@ -181,7 +192,14 @@ static void *p_toggle_file_descriptor(void *arg)
         read(so->c_to_p_pipe_fds[READ], &fd, sizeof(int));
         sem_post(so->c_to_f_pipe_sems[WRITE]);
         
-        // Change the fd in pollfds
+        // Loop across pollfds. When match is found, invert the fd at that position.
+        for (size_t p = 1; p <= MAX_CONNECTIONS; ++p)
+        {
+            if (pollfds[p].fd == fd)
+            {
+                pollfds[p].fd = pollfds[p].fd * -1;
+            }
+        }
     }
     
     return NULL;
