@@ -9,6 +9,7 @@
 #include <sys/types.h>  // back compatability
 #include <unistd.h>
 
+
 /**
  * log
  * <p>
@@ -22,8 +23,15 @@
  * @param end_time the end time of the read
  * @param elapsed_time_granular the elapsed time in seconds
  */
+
+/**
+ * Defines if the server is running
+ */
+static volatile sig_atomic_t running;   // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+
 static void log(struct core_object *co, struct state_object *so, ssize_t bytes,
                 time_t start_time, time_t end_time, double elapsed_time_granular);
+
 
 struct state_object *setup_state(struct memory_manager *mm)
 {
@@ -67,19 +75,27 @@ int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_a
     return 0;
 }
 
-int accept_conn(int listen_fd){
+int accept_conn(int listen_fd, int* fd_out){
     struct sockaddr addr;
     socklen_t len = sizeof(addr);
 
     int fd = accept(listen_fd, &addr, &len);
+    if (fd == -1){
+        if(errno == EINTR){
+            return CLIENT_RESULT_TERMINATION;
+        }
+        return CLIENT_RESULT_ERROR;
+    }
 
-    return fd;
+    *fd_out = fd;
+    return CLIENT_RESULT_SUCCESS;
 }
 
 enum msg_result {
     MSG_RESULT_SUCCESS,
     MSG_RESULT_ERROR,
     MSG_RESULT_CLOSED,
+    MSG_RESULT_TERMINATION,
 };
 
 static int receive_message (struct core_object *co){
@@ -88,6 +104,8 @@ static int receive_message (struct core_object *co){
     if (read_bytes == 0) {
         return MSG_RESULT_CLOSED;
     } else if (read_bytes == -1) {
+        if(errno == EINTR)
+            return MSG_RESULT_TERMINATION;
         return MSG_RESULT_ERROR;
     }
     msg_size = ntohl(msg_size);
@@ -101,6 +119,8 @@ static int receive_message (struct core_object *co){
         if (read_bytes == 0) {
             return MSG_RESULT_CLOSED;
         } else if (read_bytes == -1) {
+            if(errno == EINTR)
+                return MSG_RESULT_TERMINATION;
             return MSG_RESULT_ERROR;
         }
     }
@@ -127,15 +147,41 @@ static int receive_message (struct core_object *co){
     return MSG_RESULT_SUCCESS;
 }
 
+void handle_sigint(int sig_num){
+    running = 0;
+    printf("Interrupted\n");
+}
+
+int set_signal_handler(struct sigaction *sa, void (*signal_handler)(int))
+{
+    int result;
+
+    sigemptyset(&sa->sa_mask);
+    sa->sa_flags = 0;
+    sa->sa_handler = signal_handler;
+    result = sigaction(SIGINT, sa, NULL);
+
+    if(result == -1)
+    {
+        return -1;
+    }
+}
+
+
 int handle_client (struct core_object *co) {
+
     int recv_result = MSG_RESULT_SUCCESS;
+
     while (recv_result == MSG_RESULT_SUCCESS) {
         recv_result = receive_message(co);
     }
     if (recv_result == MSG_RESULT_ERROR) {
-        return -1;
-    } else { // connection closed
-        return 0;
+        return CLIENT_RESULT_ERROR;
+    } else if(recv_result == MSG_RESULT_TERMINATION){
+        return CLIENT_RESULT_TERMINATION;
+    }
+    else { // connection closed
+        return CLIENT_RESULT_SUCCESS;
     }
 }
 
@@ -178,7 +224,7 @@ int destroy_state(struct state_object *so)
     {
         switch (errno)
         {
-            case EBADF: // Not a problem.
+            case EBADF:
             {
                 errno = 0;
                 break;

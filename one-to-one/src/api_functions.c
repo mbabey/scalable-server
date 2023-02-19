@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <signal.h>
 
 int initialize_server(struct core_object *co)
 {
@@ -19,21 +20,33 @@ int initialize_server(struct core_object *co)
     {
         return ERROR;
     }
-    
+
+/*    struct sigaction sa;
+    if (set_signal_handler(&sa, handle_sigint) == -1) {
+        return ERROR;
+    }*/
+
+
     return RUN_SERVER;
 }
 
 int run_server(struct core_object *co) {
     printf("RUN ONE-TO-ONE SERVER\n");
+    int handle_result;
     do {
         close(co->so->client_fd);
-        co->so->client_fd = accept_conn(co->so->listen_fd);
-        if (co->so->client_fd == -1) {
+        int accept_result = accept_conn(co->so->listen_fd, &co->so->client_fd);
+        if(accept_result == CLIENT_RESULT_TERMINATION){
+            return CLOSE_SERVER;
+        }
+        if (accept_result == CLIENT_RESULT_ERROR) {
             return ERROR;
         }
     }
-    while (handle_client(co) == 0);
-    
+    while ((handle_result = handle_client(co)) == CLIENT_RESULT_SUCCESS);
+    if (handle_result == CLIENT_RESULT_ERROR){
+        return ERROR;
+    }
     return CLOSE_SERVER;
 }
 
