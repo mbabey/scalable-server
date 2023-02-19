@@ -10,9 +10,7 @@
 #include <mem_manager/manager.h>
 #include <getopt.h>
 #include <dlfcn.h>
-#include <net/if.h>
 #include <string.h>
-#include <sys/ioctl.h>
 
 #define DEFAULT_LISTEN_PORT "5000" // port read as a string
 #define DEFAULT_SERVER_PORT "5000"
@@ -182,7 +180,7 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
                     't',
                     "DURATION",
                     dc_uint16_from_string,
-                    "DURATION",
+                    "duration",
                     dc_uint16_from_config,
                     &default_duration},
     };

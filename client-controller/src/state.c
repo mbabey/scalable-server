@@ -73,11 +73,11 @@ static int validate_params(struct init_state_params * params, struct dc_env * en
     DC_TRACE(env);
 
     if (params->server_ip == NULL) {
-        (void) fprintf(stderr, "server IP required, pass with -s");
+        (void) fprintf(stderr, "Server IP required, pass with -s\n");
         return -1;
     }
     if (params->data_file_name == NULL) {
-        (void) fprintf(stderr, "data file required, pass with -d");
+        (void) fprintf(stderr, "Data file required, pass with -d\n");
         return -1;
     }
     return 0;

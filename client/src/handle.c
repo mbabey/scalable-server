@@ -47,6 +47,7 @@ void * handle(void *handle_args) {
             close_fd(server_sock);
             sleep(1); // backoff time
         } else {
+            log.data_size = f_size;
             log.start_time = time(NULL);
             start_time_granular = clock();
 

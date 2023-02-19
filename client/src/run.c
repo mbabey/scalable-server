@@ -6,6 +6,7 @@
 #include <poll.h>
 #include <unistd.h>
 #include <signal.h>
+#include <stdlib.h>
 
 #define START 1
 #define STOP 2
@@ -113,7 +114,7 @@ static int run_controller(struct state * s, struct dc_error * err, struct dc_env
     exit = false;
     while(!exit)
     {
-        result = poll(fds, 2, POLL_TIMEOUT_MSECS);
+        result = poll(fds, 1, POLL_TIMEOUT_MSECS);
         if (result == ERROR && errno != EINTR) // poll error (ignore interrupt error)
         {
             perror("polling controller socket");
@@ -180,11 +181,16 @@ int read_data(struct state * s, struct dc_error * err, struct dc_env * env) {
     if (read_fully(s->controller_fd, &server_ip_size, sizeof(server_ip_size)) == -1) return ERROR;
     server_ip_size = ntohl(server_ip_size);
 
+    s->server_ip = malloc(server_ip_size + 1);
+    if (s->server_ip == NULL) return ERROR;
     if (read_fully(s->controller_fd, s->server_ip, server_ip_size) == -1) return ERROR;
+    s->server_ip[server_ip_size] = '\0';
 
     if (read_fully(s->controller_fd, &data_size, sizeof(data_size)) == -1) return ERROR;
     s->data_size = (off_t)ntohl(data_size);
 
+    s->data = malloc(data_size);
+    if (s->data == NULL) return ERROR;
     if (read_fully(s->controller_fd, s->data, s->data_size) == -1) return ERROR;
 
     return SUCCESS;
@@ -194,7 +200,8 @@ static void wait_duration(struct state * s, struct dc_error * err, struct dc_env
     (void) fprintf(stdout, "Starting %d second load test with 1 client", s->wait_period_sec);
     for (int i = 0; i < s->wait_period_sec && !sig_quit; i++) {
         (void) fprintf(stdout, ".");
-        fflush(stdout);
+        (void)fflush(stdout);
+        // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
         sleep(1);
     }
     (void) fprintf(stdout, "done\n");

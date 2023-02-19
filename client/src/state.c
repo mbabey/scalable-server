@@ -43,10 +43,11 @@ int init_state(struct init_state_params * params, struct state * s, struct dc_er
     memset(s, 0, sizeof(struct state));
 
     if (params->wait_period_sec != 0) {
-        (void) fprintf(stdout, "running in standalone mode\n");
+        (void) fprintf(stdout, "Running in standalone mode\n");
+        s->wait_period_sec = params->wait_period_sec;
         s->standalone = true;
     } else {
-        (void) fprintf(stdout, "running in controller mode, server IP, server port and data will be overridden\n");
+        (void) fprintf(stdout, "Running in controller mode, server address and data overridden\n");
         s->standalone = false;
     }
 
@@ -73,26 +74,47 @@ static int validate_params(struct init_state_params * params, struct state * s, 
     DC_TRACE(env);
 
     if (s->standalone) {
+        // errors
         if (params->server_ip == NULL) {
-            (void) fprintf(stderr, "server IP required for standalone mode, pass with -s");
+            (void) fprintf(stderr, "Server IP required for standalone mode, pass with -s\n");
             return -1;
         }
         if (params->server_port == NULL) {
-            (void) fprintf(stderr, "server port required for standalone mode, pass with -p");
+            (void) fprintf(stderr, "Server port required for standalone mode, pass with -p\n");
             return -1;
         }
         if (params->data_file_name == NULL) {
-            (void) fprintf(stderr, "data file required for standalone mode, pass with -d");
+            (void) fprintf(stderr, "Data file required for standalone mode, pass with -d\n");
             return -1;
         }
+
+        // warnings
+        if (params->controller_ip != NULL) {
+            (void) fprintf(stdout, "WARNING: Controller IP not used for standalone mode\n");
+        }
+        if (params->controller_port != NULL) {
+            (void) fprintf(stdout, "WARNING: Controller port not used for standalone mode\n");
+        }
     } else {
+        // errors
         if (params->controller_ip == NULL) {
-            (void) fprintf(stderr, "controller IP required for controller mode, pass with -c");
+            (void) fprintf(stderr, "Controller IP required for controller mode, pass with -c\n");
             return -1;
         }
         if (params->controller_port == NULL) {
-            (void) fprintf(stderr, "controller port required for controller mode, pass with -P");
+            (void) fprintf(stderr, "Controller port required for controller mode, pass with -P\n");
             return -1;
+        }
+
+        // warnings
+        if (params->server_ip != NULL) {
+            (void) fprintf(stdout, "WARNING: Server IP overridden in controller mode\n");
+        }
+        if (params->server_port != NULL) {
+            (void) fprintf(stdout, "WARNING: Server port overridden in controller mode\n");
+        }
+        if (params->data_file_name != NULL) {
+            (void) fprintf(stdout, "WARNING: Data file overridden in controller mode\n");
         }
     }
 
@@ -157,6 +179,12 @@ int destroy_state(struct state * s, struct dc_error * err, struct dc_env * env) 
 
     if (s->data) {
         free(s->data);
+    }
+
+    if (!s->standalone) {
+        if (s->server_ip) {
+            free(s->server_ip);
+        }
     }
 
     if (destroy_logger() == -1) {
