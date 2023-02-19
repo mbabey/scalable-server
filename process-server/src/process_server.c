@@ -113,6 +113,20 @@ static int p_get_pollfd_index(const struct pollfd *pollfds);
 static int p_happy_dappy_communicappy(struct core_object *co, struct state_object *so, struct pollfd *pollfds);
 
 /**
+ * p_remove_connection
+ * <p>
+ * Close a connection and remove the fd from the list of pollfds.
+ * </p>
+ * @param co the core object
+ * @param parent the state object
+ * @param pollfd the pollfd to close and clean
+ * @param conn_index the index of the connection in the array of client_fds and client_addrs
+ * @param listen_pollfd the listen pollfd
+ */
+static void p_remove_connection(struct core_object *co, struct parent_struct *parent,
+                                struct pollfd *pollfd, size_t conn_index, struct pollfd *listen_pollfd);
+
+/**
  * c_receive_and_handle_messages
  * <p>
  * Look for action on the domain socket, read the sent client socket, then send the client fd known by the parent
@@ -271,6 +285,7 @@ static int setup_signal_handler(struct sigaction *sa, int signal)
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
+
 static void end_gogo_handler(int signal)
 {
     GOGO_PROCESS = 0;
@@ -371,12 +386,35 @@ static int p_happy_dappy_communicappy(struct core_object *co, struct state_objec
             // Client has closed other end of socket.
             // On MacOS, POLLHUP will be set; on Linux, POLLERR will be set.
         {
-            (p_remove_connection(co, so, pollfd, fd_num - 1, pollfds));
+            (p_remove_connection(co, so->parent, pollfd, fd_num - 1, pollfds));
         }
         pollfd->revents = 0;
     }
     
     return 0;
+}
+
+static void p_remove_connection(struct core_object *co, struct parent_struct *parent,
+                                struct pollfd *pollfd, size_t conn_index, struct pollfd *listen_pollfd)
+{
+    DC_TRACE(co->env);
+    
+    // close the fd
+    close_fd_report_undefined_error(pollfd->fd, "state of client socket is undefined.");
+    
+    // NOLINTNEXTLINE(concurrency-mt-unsafe): No threads here
+    (void) fprintf(stdout, "Client from %s:%d disconnected\n", inet_ntoa(parent->client_addrs[conn_index].sin_addr),
+                   ntohs(parent->client_addrs[conn_index].sin_port));
+    
+    // zero the pollfd struct, the fd in the state object, and the client_addr in the state object.
+    memset(pollfd, 0, sizeof(struct pollfd));
+    memset(&parent->client_addrs[conn_index], 0, sizeof(struct sockaddr_in));
+    --parent->num_connections;
+    
+    if (parent->num_connections < MAX_CONNECTIONS)
+    {
+        listen_pollfd->events = POLLIN; // Turn on POLLIN on the listening socket when less than max connections.
+    }
 }
 
 static int c_receive_and_handle_messages(struct core_object *co, struct state_object *so)

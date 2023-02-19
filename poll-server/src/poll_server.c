@@ -122,6 +122,7 @@ static void log(struct core_object *co, struct state_object *so, size_t fd_num, 
  * @param so the state object
  * @param pollfd the pollfd to close and clean
  * @param conn_index the index of the connection in the array of client_fds and client_addrs
+ * @param listen_pollfd the listen pollfd
  */
 static void
 poll_remove_connection(struct core_object *co, struct state_object *so, struct pollfd *pollfd, size_t conn_index,
