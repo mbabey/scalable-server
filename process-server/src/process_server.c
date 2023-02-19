@@ -316,14 +316,21 @@ static void *p_toggle_file_descriptors(void *arg)
     
     while (GOGO_PROCESS)
     {
-        sem_wait(so->c_to_f_pipe_sems[READ]); // TODO: see sem_post at end of p_run_poll_loop
+        if (sem_wait(so->c_to_f_pipe_sems[READ]) == -1)
+        {
+            if (errno != EINTR)
+            {
+                fprintf(stderr, "Error waiting for read sem in pipe listening thread: %s", strerror(errno));
+            }
+            return NULL;
+        }
         read(so->c_to_p_pipe_fds[READ], &fd, sizeof(int));
         sem_post(so->c_to_f_pipe_sems[WRITE]);
         
         // Loop across pollfds. When match is found, invert the fd at that position.
         for (size_t p = 1; p <= MAX_CONNECTIONS; ++p)
         {
-            if (pollfds[p].fd == fd)
+            if (pollfds[p].fd == fd || pollfds[p].fd == fd * -1)
             {
                 pollfds[p].fd = pollfds[p].fd * -1;
             }
@@ -413,17 +420,39 @@ static int p_send_to_child(struct core_object *co, struct state_object *so, stru
                            struct pollfd *active_pollfd, size_t conn_index)
 {
     DC_TRACE(co->env);
-    ssize_t bytes_sent;
+    ssize_t        bytes_sent;
+    struct msghdr  msghdr;
+    struct iovec   iovec;
+    struct cmsghdr *cmsghdr;
+    char           control_buffer[CMSG_SPACE(sizeof(int))]; // Create space for one cmsghdr storing an integer.
     
-    // Set up all the message header bullshit
-    // Add the parent fd int first
-    // Add the actual file descriptor struct second
+    memset(&msghdr, 0, sizeof(struct msghdr));
+    memset(&iovec, 0, sizeof(struct iovec));
+    memset(&control_buffer, 0, sizeof(control_buffer));
+    
+    iovec.iov_base = &active_pollfd->fd; // The file descriptor to send.
+    iovec.iov_len  = sizeof(int);
+    
+    msghdr.msg_iov        = &iovec; // Put the IO vector in the msghdr to send.
+    msghdr.msg_iovlen     = 1;
+    msghdr.msg_control    = control_buffer; // Put the control buffer (containing the cmsghdr) into the msghdr to send.
+    msghdr.msg_controllen = sizeof(control_buffer);
+    
+    cmsghdr = CMSG_FIRSTHDR(&msghdr);
+    if (!cmsghdr)
+    {
+        return -1;
+    }
+    
+    cmsghdr->cmsg_level = SOL_SOCKET;
+    cmsghdr->cmsg_type  = SCM_RIGHTS; // Indicates it is a file description being sent.
+    cmsghdr->cmsg_len   = CMSG_LEN(sizeof(int));
     
     if (sem_wait(so->domain_sems[WRITE]) == -1)
     {
         return (errno == EINTR) ? 0 : -1;
     }
-    bytes_sent = sendmsg(so->domain_fds[WRITE], NULL, 0);
+    bytes_sent = sendmsg(so->domain_fds[WRITE], &msghdr, 0); // Send the msghdr.
     if (bytes_sent == -1)
     {
         return -1;
