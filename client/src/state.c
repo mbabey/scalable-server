@@ -31,54 +31,71 @@ static int load_data(char **dst, struct state * s, const char *file_name, const 
  * validates the init_state_params structure.
  * </p>
  * @param params pointer to the init_state_params structure.
+ * @param state pointer to the state structure.
  * @param env pointer to the dc_env struct.
  * @return 0 if valid, -1 if invalid.
  */
-static int validate_params(struct init_state_params * params, struct dc_env * env);
+static int validate_params(struct init_state_params * params, struct state * s, struct dc_env * env);
 
 int init_state(struct init_state_params * params, struct state * s, struct dc_error * err, struct dc_env * env) {
     DC_TRACE(env);
 
-    if (validate_params(params, env) == -1) return -1;
-
     memset(s, 0, sizeof(struct state));
 
-    s->server_ip = params->server_ip;
-    s->controller_ip = params->controller_ip;
+    if (params->wait_period_sec != 0) {
+        (void) fprintf(stdout, "running in standalone mode\n");
+        s->standalone = true;
+    } else {
+        (void) fprintf(stdout, "running in controller mode, server IP, server port and data will be overridden\n");
+        s->standalone = false;
+    }
 
-    if (parse_port(&s->server_port, params->server_port, 10) == -1) return -1;
-    if (parse_port(&s->controller_port, params->controller_port, 10) == -1) return -1;
+    if (validate_params(params, s, env) == -1) return -1;
 
-    if (init_addr(&s->controller_addr, s->controller_ip, s->controller_port) == -1) return -1;
-
-    if (TCP_socket(&s->controller_fd) == -1) return -1;
-
-    if (init_connection(s->controller_fd, &s->controller_addr) == -1) return -1;
-
-    if (set_sock_blocking(s->controller_fd, false) == -1) return -1; // needed for poll
-
-    if (load_data(&s->data, s, params->data_file_name, DATA_OPEN_MODE, env) == -1) return -1;
-
+    if (s->standalone) {
+        s->server_ip = params->server_ip;
+        if (parse_port(&s->server_port, params->server_port, 10) == -1) return -1;
+        if (load_data(&s->data, s, params->data_file_name, DATA_OPEN_MODE, env) == -1) return -1;
+    } else {
+        s->controller_ip = params->controller_ip;
+        if (parse_port(&s->controller_port, params->controller_port, 10) == -1) return -1;
+        if (init_addr(&s->controller_addr, s->controller_ip, s->controller_port) == -1) return -1;
+        if (TCP_socket(&s->controller_fd) == -1) return -1;
+        if (init_connection(s->controller_fd, &s->controller_addr) == -1) return -1;
+        if (set_sock_blocking(s->controller_fd, false) == -1) return -1; // needed for poll
+    }
     if (init_logger() == -1) return -1;
 
     return 0;
 }
 
-static int validate_params(struct init_state_params * params, struct dc_env * env) {
+static int validate_params(struct init_state_params * params, struct state * s,  struct dc_env * env) {
     DC_TRACE(env);
 
-    if (params->server_ip == NULL) {
-        (void) fprintf(stderr, "server IP required, pass with -s");
-        return -1;
+    if (s->standalone) {
+        if (params->server_ip == NULL) {
+            (void) fprintf(stderr, "server IP required for standalone mode, pass with -s");
+            return -1;
+        }
+        if (params->server_port == NULL) {
+            (void) fprintf(stderr, "server port required for standalone mode, pass with -p");
+            return -1;
+        }
+        if (params->data_file_name == NULL) {
+            (void) fprintf(stderr, "data file required for standalone mode, pass with -d");
+            return -1;
+        }
+    } else {
+        if (params->controller_ip == NULL) {
+            (void) fprintf(stderr, "controller IP required for controller mode, pass with -c");
+            return -1;
+        }
+        if (params->controller_port == NULL) {
+            (void) fprintf(stderr, "controller port required for controller mode, pass with -P");
+            return -1;
+        }
     }
-    if (params->controller_ip == NULL) {
-        (void) fprintf(stderr, "controller IP required, pass with -c");
-        return -1;
-    }
-    if (params->data_file_name == NULL) {
-        (void) fprintf(stderr, "data file required, pass with -d");
-        return -1;
-    }
+
     return 0;
 }
 
