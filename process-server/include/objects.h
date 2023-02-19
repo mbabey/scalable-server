@@ -4,6 +4,7 @@
 #include "../../core/include/objects.h"
 
 #include <semaphore.h>
+#include <poll.h>
 
 /**
  * The number of worker processes to be spawned to handle network requests.
@@ -72,7 +73,7 @@ struct child_struct
 struct parent_struct
 {
     int                listen_fd;
-    int                client_fds[MAX_CONNECTIONS];
+    struct pollfd      client_pollfds[MAX_CONNECTIONS];
     struct sockaddr_in client_addrs[MAX_CONNECTIONS];
     size_t             num_connections;
 };

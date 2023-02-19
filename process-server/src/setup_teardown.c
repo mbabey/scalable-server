@@ -126,7 +126,7 @@ void p_destroy_parent_state(struct core_object *co, struct state_object *so, str
     
     for (size_t sfd_num = 0; sfd_num < MAX_CONNECTIONS; ++sfd_num)
     {
-        close_fd_report_undefined_error(*(parent->client_fds + sfd_num), "state of client socket is undefined.");
+        close_fd_report_undefined_error((parent->client_pollfds + sfd_num)->fd, "state of client socket is undefined.");
     }
     
     co->mm->mm_free(co->mm, parent);
