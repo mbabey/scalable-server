@@ -28,7 +28,8 @@ static int handle_accept(struct pollfd *pfd, struct state * s, struct dc_error *
 /**
  * handle_stdin
  * <p>
- * check if a user input equals the start command. If so, start connected clients.
+ * check if a user input equals the start command. If so, send the start command to clients and then send server port,
+ * server ip, and data.
  * </p>
  * @param pfd poll file descriptor to reset revents on.
  * @param s the program state struct.
@@ -165,8 +166,10 @@ static int handle_stdin(struct pollfd *pfd, struct state * s, struct dc_error * 
 
     if (strcmp(buff, START_COMMAND) == 0)
     {
-        int result = send_start(s, err, env);
-        if (result == -1) {
+        if (send_start(s, err, env) == -1) {
+            return -1;
+        }
+        if (send_data(s, err, env)) {
             return -1;
         }
         return 1;

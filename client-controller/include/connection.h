@@ -27,4 +27,17 @@ int send_start(struct state * s, struct dc_error * err, struct dc_env * env);
  */
 int send_stop(struct state * s, struct dc_error * err, struct dc_env * env);
 
+/**
+ * send_data
+ * <p>
+ * send server port, server IP address, and data to clients, in that order. Server IP address and data are prefixed
+ * with their respective size.
+ * </p>
+ * @param s pointer to the state structure.
+ * @param err pointer to the dc_error structure.
+ * @param env pointer to the dc_env structure.
+ * @return 0 on success. On failure -1 and set errno.
+ */
+int send_data(struct state * s, struct dc_error * err, struct dc_env * env);
+
 #endif //CLIENT_CONTROLLER_CONNECTION_H

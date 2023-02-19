@@ -7,6 +7,14 @@
 
 #define MAX_CONNS 500
 
+struct init_state_params {
+    const char *listen_port;
+    const char *server_ip;
+    const char *server_port;
+    const char *data_file_name;
+    int wait_period_sec;
+};
+
 /**
  * state
  * <p>
@@ -17,7 +25,11 @@ struct state {
     in_port_t listen_port;
     struct sockaddr_in listen_addr;
     int listen_fd;
+    const char * server_ip;
+    in_port_t server_port;
     int accepted_fds[MAX_CONNS];
+    char * data;
+    off_t data_size;
     int num_conns;
     bool started;
     int wait_period_sec;
@@ -28,14 +40,13 @@ struct state {
  * <p>
  * initialize the state object and open a non-blocking TCP socket for listening.
  * </p>
- * @param wait_period_sec load test length in seconds.
- * @param listen_port the port to listen on.
+ * @param params pointer to the init_state_params structure.
  * @param s pointer the state object to initialize.
  * @param err pointer to a dc_error struct.
  * @param env pointer to a dc_env struct.
  * @return 0 on success. On failure, -1 and set errno.
  */
-int init_state(int wait_period_sec, const char *listen_port, struct state * s, struct dc_error * err, struct dc_env * env);
+int init_state(struct init_state_params * params, struct state * s, struct dc_error * err, struct dc_env * env);
 
 /**
  * destroy_state.

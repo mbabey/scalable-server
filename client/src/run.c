@@ -28,7 +28,7 @@ int run_state(struct state * s, struct dc_error * err, struct dc_env * env) {
     DC_TRACE(env);
     bool exit;
     enum states result;
-    struct pollfd fds[2];
+    struct pollfd fds[1];
 
     fds[0].fd = s->controller_fd;
     fds[0].events = POLLIN;

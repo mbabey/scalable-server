@@ -20,10 +20,20 @@
  * @param dst where to allocate and store data.
  * @param file_name name of the file to read.
  * @param mode mode to open the file in.
+ * @param env pointer to the dc_env struct.
  * @return 0 on success. -1 on failure and set errno.
  */
 static int load_data(char **dst, struct state * s, const char *file_name, const char *mode, struct dc_env * env);
 
+/**
+ * validate_params
+ * <p>
+ * validates the init_state_params structure.
+ * </p>
+ * @param params pointer to the init_state_params structure.
+ * @param env pointer to the dc_env struct.
+ * @return 0 if valid, -1 if invalid.
+ */
 static int validate_params(struct init_state_params * params, struct dc_env * env);
 
 int init_state(struct init_state_params * params, struct state * s, struct dc_error * err, struct dc_env * env) {
@@ -85,7 +95,7 @@ static int load_data(char **dst, struct state * s, const char *file_name, const 
         return -1;
     }
 
-    *dst = malloc(data_info.st_size + 1);
+    *dst = malloc(data_info.st_size);
     if (*dst == NULL) {
         perror("malloc for data");
         return -1;
