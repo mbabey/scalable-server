@@ -15,6 +15,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <pthread.h>
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): must be non-const
 /**
@@ -166,29 +167,69 @@ int run_process_server(struct core_object *co, struct state_object *so)
 
 static int p_run_poll_loop(struct core_object *co, struct state_object *so)
 {
-    DC_TRACE(co->env);
     // TODO: in this function the server process (parent) will poll active sockets then send them to the children.
     //  if the active socket is the listen socket, the parent will accept a new connection. Very similar to poll server.
     
-    // Recommend: use while (GOGO_PROCESS) :) see poll-server/poll_server.c::execute_poll():line 212
-    // The function in here will look exactly the same, except the poll_comm will be a function that sends
-    // the message to a child process.
+    DC_TRACE(co->env);
+    struct sigaction sigint;
+    pthread_t        fd_inverter_thread;
+    int              poll_status;
+    struct pollfd    *pollfds;
+    nfds_t           nfds;
     
-    // will need a thread to handle listening to the pipe and setting the pollfds to -fd
+    if (setup_signal_handler(&sigint, SIGINT) == -1)
+    {
+        return -1;
+    }
+    if (setup_signal_handler(&sigint, SIGTERM) == -1)
+    {
+        return -1;
+    }
+    
+    pthread_create(&fd_inverter_thread, NULL, p_toggle_file_descriptors, so);
+    
+    pollfds = so->parent->client_pollfds;
+    nfds    = MAX_CONNECTIONS + 1;
+    
+    while (GOGO_PROCESS)
+    {
+        poll_status = poll(pollfds, nfds, -1);
+        if (poll_status == -1)
+        {
+            return (errno == EINTR) ? 0 : -1;
+        }
+        
+        // If action on the listen socket.
+        if ((*pollfds).revents == POLLIN)
+        {
+            if (poll_accept(co, co->so, pollfds) == -1)
+            {
+                return -1;
+            }
+        } else
+        {
+            if (poll_comm(co, co->so, pollfds) == -1)
+            {
+                return -1;
+            }
+        }
+    }
+    
+    sem_post(so->c_to_f_pipe_sems[READ]); // TODO: is this necessary to kick thread out of loop?
+    pthread_join(fd_inverter_thread, NULL);
     
     return 0;
 }
 
 static void *p_toggle_file_descriptors(void *arg)
 {
-    struct state_object *so = (struct state_object *) arg;
-    struct pollfd *pollfds = so->parent->client_pollfds;
+    struct state_object *so      = (struct state_object *) arg;
+    struct pollfd       *pollfds = so->parent->client_pollfds;
     int                 fd;
     
     while (GOGO_PROCESS)
     {
-        // TODO: will have to handle passing this on close, maybe post on it before joining this thread?
-        sem_wait(so->c_to_f_pipe_sems[READ]);
+        sem_wait(so->c_to_f_pipe_sems[READ]); // TODO: see sem_post at end of p_run_poll_loop
         read(so->c_to_p_pipe_fds[READ], &fd, sizeof(int));
         sem_post(so->c_to_f_pipe_sems[WRITE]);
         
