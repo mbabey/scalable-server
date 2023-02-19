@@ -140,10 +140,14 @@ int run_process_server(struct core_object *co, struct state_object *so)
     // In parent, child will be NULL. In child, parent will be NULL. This behaviour can be used to identify if child or parent.
     if (so->parent)
     {
+        close_fd_report_undefined_error(so->c_to_p_pipe_fds[WRITE], "state of parent pipe write is undefined.");
+        close_fd_report_undefined_error(so->domain_fds[READ], "state of parent domain socket is undefined.");
         p_open_process_server_for_listen(co, so->parent, &co->listen_addr);
         p_run_poll_loop(co, so);
     } else if (so->child)
     {
+        close_fd_report_undefined_error(so->c_to_p_pipe_fds[READ], "state of child pipe read is undefined.");
+        close_fd_report_undefined_error(so->domain_fds[WRITE], "state of child domain socket is undefined.");
         c_receive_and_handle_messages(co, so);
     }
     
@@ -160,7 +164,27 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so)
     // The function in here will look exactly the same, except the poll_comm will be a function that sends
     // the message to a child process.
     
+    // will need a thread to handle listening to the pipe and setting the pollfds to -fd
+    
     return 0;
+}
+
+static void *p_toggle_file_descriptor(void *arg)
+{
+    struct state_object *so = (struct state_object *) arg;
+    int                 fd;
+    
+    while (GOGO_PROCESS)
+    {
+        // TODO: will have to handle passing this on close, maybe post on it before joining this thread?
+        sem_wait(so->c_to_f_pipe_sems[READ]);
+        read(so->c_to_p_pipe_fds[READ], &fd, sizeof(int));
+        sem_post(so->c_to_f_pipe_sems[WRITE]);
+        
+        // Change the fd in pollfds
+    }
+    
+    return NULL;
 }
 
 static int c_receive_and_handle_messages(struct core_object *co, struct state_object *so)
@@ -202,6 +226,6 @@ void destroy_process_state(struct core_object *co, struct state_object *so)
         p_destroy_parent_state(co, so, so->parent);
     } else if (so->child)
     {
-        c_destroy_child_state(co, NULL, so->child);
+        c_destroy_child_state(co, so, so->child);
     }
 }

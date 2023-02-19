@@ -121,7 +121,7 @@ void p_destroy_parent_state(struct core_object *co, struct state_object *so, str
     }
     
     close_fd_report_undefined_error(so->c_to_p_pipe_fds[READ], "state of pipe read is undefined.");
-    close_fd_report_undefined_error(so->domain_fd, "state of domain socket is undefined.");
+    close_fd_report_undefined_error(so->domain_fds[WRITE], "state of parent domain socket is undefined.");
     close_fd_report_undefined_error(parent->listen_fd, "state of listen socket is undefined.");
     
     for (size_t sfd_num = 0; sfd_num < MAX_CONNECTIONS; ++sfd_num)
@@ -142,6 +142,7 @@ void p_destroy_parent_state(struct core_object *co, struct state_object *so, str
 void c_destroy_child_state(struct core_object *co, struct state_object *so, struct child_struct *child)
 {
     close_fd_report_undefined_error(so->c_to_p_pipe_fds[WRITE], "state of pipe write is undefined.");
+    close_fd_report_undefined_error(so->domain_fds[READ], "state of child domain socket is undefined.");
     
     co->mm->mm_free(co->mm, child);
 }
