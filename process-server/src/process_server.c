@@ -233,6 +233,8 @@ int setup_process_server(struct core_object *co, struct state_object *so)
         return -1;
     }
     
+    GOGO_PROCESS = 1;
+    
     if (fork_child_processes(co, so) == -1)
     {
         return -1;
