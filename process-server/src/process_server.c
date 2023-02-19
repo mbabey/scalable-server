@@ -190,6 +190,23 @@ static int c_get_file_description_from_domain_socket(struct core_object *co, str
 static int c_recv_and_log(struct core_object *co, struct state_object *so, struct child_struct *child);
 
 /**
+ * c_log
+ * <p>
+ * Log the information from one received message into the log file in Comma Separated Value file format.
+ * </p>
+ * @param co the core object
+ * @param so the state object
+ * @param pid the pid of the child handling the message
+ * @param bytes the number of bytes read
+ * @param start_time the start time of the read
+ * @param end_time the end time of the read
+ * @param elapsed_time_granular the elapsed time in seconds
+ */
+static int
+c_log(struct core_object *co, struct state_object *so, struct child_struct *child, ssize_t bytes, time_t start_time,
+      time_t end_time, double elapsed_time_granular);
+
+/**
  * c_inform_parent_recv_finished
  * <p>
  * Send the original fd number to the parent over the child-parent pipe. Close the socket on the child.
@@ -364,7 +381,7 @@ static void *p_watch_pipe_reenable_fds(void *arg)
     struct state_object *so      = (struct state_object *) arg;
     struct pollfd       *pollfds = so->parent->pollfds;
     int                 fd;
-    ssize_t bytes_read;
+    ssize_t             bytes_read;
     
     while (GOGO_PROCESS)
     {
@@ -580,7 +597,6 @@ static int c_run_child_process(struct core_object *co, struct state_object *so)
 static int c_receive_and_handle_messages(struct core_object *co, struct state_object *so, struct child_struct *child)
 {
     DC_TRACE(co->env);
-    // TODO: in this function the child process will look for action on the domain socket, read a socket, then send the parent fd through the pipe when reading is done.
     
     while (GOGO_PROCESS)
     {
@@ -591,21 +607,19 @@ static int c_receive_and_handle_messages(struct core_object *co, struct state_ob
         {
             return -1;
         }
-        if (c_recv_and_log(co, NULL, child) == -1)
+        if (c_recv_and_log(co, so, child) == -1)
         {
             return -1;
         }
-        if (c_inform_parent_recv_finished(co, so, child) == -1)
-        {
-            return -1;
-        }
+    
+        close_fd_report_undefined_error(child->client_fd_local, "state of child receive socket undefined.");
     }
     
     return 0;
 }
 
 static int c_get_file_description_from_domain_socket(struct core_object *co, struct state_object *so,
-        struct child_struct *child)
+                                                     struct child_struct *child)
 {
     DC_TRACE(co->env);
     
@@ -649,8 +663,123 @@ static int c_get_file_description_from_domain_socket(struct core_object *co, str
 
 static int c_recv_and_log(struct core_object *co, struct state_object *so, struct child_struct *child)
 {
-    // TODO: recv message from socket. Log message information.
+    DC_TRACE(co->env);
+    ssize_t  bytes;
+    char     *buffer;
+    size_t   buffer_size;
+    uint32_t bytes_to_read;
+    uint32_t bytes_read;
+    time_t   start_time;
+    time_t   end_time;
+    clock_t  start_time_granular;
+    clock_t  end_time_granular;
+    double   elapsed_time_granular;
     
+    // Read the number of bytes that will be sent in the message.
+    bytes = recv(child->client_fd_local, &bytes_to_read, sizeof(bytes_to_read), 0);
+    if (bytes == -1)
+    {
+        return -1;
+    }
+    
+    bytes_to_read = ntohl(bytes_to_read);
+    
+    // Allocate the buffer based on bytes to read.
+    buffer_size = (bytes_to_read + 1 * sizeof(char));
+    buffer      = (char *) Mmm_malloc(buffer_size, co->mm);
+    if (!buffer)
+    {
+        return -1;
+    }
+    
+    bytes_read          = 0;
+    start_time          = time(NULL);
+    start_time_granular = clock();
+    while (bytes_read < bytes_to_read && bytes != 0)
+    {
+        bytes = recv(child->client_fd_local, buffer + bytes_read, sizeof(buffer), 0); // Recv into buffer
+        if (bytes == -1)
+        {
+            co->mm->mm_free(co->mm, buffer);
+            return -1;
+        }
+        bytes_read += bytes;
+    }
+    end_time_granular   = clock();
+    end_time            = time(NULL);
+    
+    if (c_inform_parent_recv_finished(co, so, child) == -1) // Write OG fd to pipe.
+    {
+        return -1;
+    }
+    
+    elapsed_time_granular = (double) (end_time_granular - start_time_granular) / CLOCKS_PER_SEC;
+    
+    if (c_log(co, so, child, bytes_read, start_time, end_time, elapsed_time_granular) == -1)
+    {
+        return -1;
+    }
+    
+    co->mm->mm_free(co->mm, buffer);
+    
+    bytes_read = htonl(bytes_read);
+    bytes      = send(child->client_fd_local, &bytes_read, sizeof(bytes_read),
+                      0); // Send back the number of bytes read.
+    if (bytes == -1)
+    {
+        return -1;
+    }
+    
+    return 0;
+}
+
+static int
+c_log(struct core_object *co, struct state_object *so, struct child_struct *child, ssize_t bytes, time_t start_time,
+      time_t end_time, double elapsed_time_granular)
+{
+    pid_t     pid;
+    int       fd_in_child;
+    int       fd_in_parent;
+    char      *client_addr;
+    in_port_t client_port;
+    char      *start_time_str;
+    char      *end_time_str;
+    
+    // NOLINTBEGIN(concurrency-mt-unsafe): No threads here
+    pid          = getpid();
+    fd_in_child  = child->client_fd_local;
+    fd_in_parent = child->client_fd_parent;
+    client_addr  = inet_ntoa(child->client_addr.sin_addr);
+    client_port  = ntohs(child->client_addr.sin_port);
+    if (start_time)
+    {
+        start_time_str = ctime(&start_time);
+        *(start_time_str + strlen(start_time_str) - 1) = '\0'; // Remove newline
+    } else
+    {
+        start_time_str = NULL;
+    }
+    if (end_time)
+    {
+        end_time_str = ctime(&end_time);
+        *(end_time_str + strlen(end_time_str) - 1) = '\0'; // Remove newline
+    } else
+    {
+        end_time_str = NULL;
+    }
+    // NOLINTEND(concurrency-mt-unsafe)
+    
+    if (sem_wait(so->log_sem) == -1)
+    {
+        return (errno == EINTR) ? 0 : -1;
+    }
+    
+    /* log the connection index, the file descriptor, the client IP, the client port,
+     * the number of bytes read, the start time, and the end time */
+    (void) fprintf(co->log_file, "%d,%d,%d,%s,%d,%lu,%s,%s,%lf\n", pid, fd_in_child, fd_in_parent, client_addr,
+                   client_port, bytes,
+                   (start_time_str) ? start_time_str : "NULL", (end_time_str) ? end_time_str : "NULL",
+                   elapsed_time_granular);
     
     return 0;
 }
