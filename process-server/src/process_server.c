@@ -34,7 +34,7 @@ volatile int GOGO_PROCESS = 1;
  * @param co the core object
  * @return 0 on success, -1 and set errno on failure
  */
-static int p_run_poll_loop(struct core_object *co, struct state_object *so);
+static int p_run_poll_loop(struct core_object *co, struct parent_struct *parent);
 
 /**
  * c_receive_and_handle_messages
@@ -154,7 +154,7 @@ int run_process_server(struct core_object *co, struct state_object *so)
         close_fd_report_undefined_error(so->c_to_p_pipe_fds[WRITE], "state of parent pipe write is undefined.");
         close_fd_report_undefined_error(so->domain_fds[READ], "state of parent domain socket is undefined.");
         p_open_process_server_for_listen(co, so->parent, &co->listen_addr);
-        p_run_poll_loop(co, so);
+        p_run_poll_loop(co, so->parent);
     } else if (so->child)
     {
         close_fd_report_undefined_error(so->c_to_p_pipe_fds[READ], "state of child pipe read is undefined.");
@@ -165,11 +165,8 @@ int run_process_server(struct core_object *co, struct state_object *so)
     return 0;
 }
 
-static int p_run_poll_loop(struct core_object *co, struct state_object *so)
+static int p_run_poll_loop(struct core_object *co, struct parent_struct *parent)
 {
-    // TODO: in this function the server process (parent) will poll active sockets then send them to the children.
-    //  if the active socket is the listen socket, the parent will accept a new connection. Very similar to poll server.
-    
     DC_TRACE(co->env);
     struct sigaction sigint;
     pthread_t        fd_inverter_thread;
@@ -185,10 +182,12 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so)
     {
         return -1;
     }
+    if (pthread_create(&fd_inverter_thread, NULL, p_toggle_file_descriptors, co->so) != 0)
+    {
+        return -1;
+    }
     
-    pthread_create(&fd_inverter_thread, NULL, p_toggle_file_descriptors, so);
-    
-    pollfds = so->parent->client_pollfds;
+    pollfds = parent->pollfds;
     nfds    = MAX_CONNECTIONS + 1;
     
     while (GOGO_PROCESS)
@@ -202,13 +201,13 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so)
         // If action on the listen socket.
         if ((*pollfds).revents == POLLIN)
         {
-            if (poll_accept(co, co->so, pollfds) == -1)
+            if (p_accept_new_connection(co, so, pollfds) == -1)
             {
                 return -1;
             }
         } else
         {
-            if (poll_comm(co, co->so, pollfds) == -1)
+            if (p_send_fd_to_child(co, so, pollfds) == -1)
             {
                 return -1;
             }
@@ -224,7 +223,7 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so)
 static void *p_toggle_file_descriptors(void *arg)
 {
     struct state_object *so      = (struct state_object *) arg;
-    struct pollfd       *pollfds = so->parent->client_pollfds;
+    struct pollfd       *pollfds = so->parent->pollfds;
     int                 fd;
     
     while (GOGO_PROCESS)

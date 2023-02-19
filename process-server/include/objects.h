@@ -72,8 +72,7 @@ struct child_struct
 
 struct parent_struct
 {
-    int                listen_fd;
-    struct pollfd      client_pollfds[MAX_CONNECTIONS];
+    struct pollfd      pollfds[1 + MAX_CONNECTIONS]; // 0th position is the listen socket fd.
     struct sockaddr_in client_addrs[MAX_CONNECTIONS];
     size_t             num_connections;
 };

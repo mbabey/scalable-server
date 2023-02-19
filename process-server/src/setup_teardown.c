@@ -102,7 +102,7 @@ p_open_process_server_for_listen(struct core_object *co, struct parent_struct *p
         return -1;
     }
     
-    parent->listen_fd = fd;
+    parent->pollfds[0].fd = fd;
     
     return 0;
 }
@@ -122,11 +122,10 @@ void p_destroy_parent_state(struct core_object *co, struct state_object *so, str
     
     close_fd_report_undefined_error(so->c_to_p_pipe_fds[READ], "state of pipe read is undefined.");
     close_fd_report_undefined_error(so->domain_fds[WRITE], "state of parent domain socket is undefined.");
-    close_fd_report_undefined_error(parent->listen_fd, "state of listen socket is undefined.");
     
-    for (size_t sfd_num = 0; sfd_num < MAX_CONNECTIONS; ++sfd_num)
+    for (size_t sfd_num = 0; sfd_num < 1 + MAX_CONNECTIONS; ++sfd_num)
     {
-        close_fd_report_undefined_error((parent->client_pollfds + sfd_num)->fd, "state of client socket is undefined.");
+        close_fd_report_undefined_error((parent->pollfds + sfd_num)->fd, "state of connection socket is undefined.");
     }
     
     co->mm->mm_free(co->mm, parent);
