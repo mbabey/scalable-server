@@ -100,7 +100,7 @@ static int p_accept_new_connection(struct core_object *co, struct parent_struct 
 static int p_get_pollfd_index(const struct pollfd *pollfds);
 
 /**
- * p_happy_dappy_communicappy
+ * p_handle_socket_action
  * <p>
  * Read from all file descriptors in pollfds for which POLLIN is set.
  * Remove all file descriptors in pollfds for which POLLHUP is set.
@@ -110,7 +110,7 @@ static int p_get_pollfd_index(const struct pollfd *pollfds);
  * @param pollfds the pollfds array
  * @return 0 on success, -1 and set errno on failure
  */
-static int p_happy_dappy_communicappy(struct core_object *co, struct state_object *so, struct pollfd *pollfds);
+static int p_handle_socket_action(struct core_object *co, struct state_object *so, struct pollfd *pollfds);
 
 /**
  * p_send_to_child
@@ -124,8 +124,7 @@ static int p_happy_dappy_communicappy(struct core_object *co, struct state_objec
  * @param conn_index the index of the pollfd in the fd array.
  * @return 0 on success, -1 and set errno on failure
  */
-static int p_send_to_child(struct core_object *co, struct state_object *so, struct parent_struct *parent,
-                           struct pollfd *active_pollfd, size_t conn_index);
+static int p_send_to_child(struct core_object *co, struct state_object *so, struct pollfd *active_pollfd);
 
 /**
  * p_remove_connection
@@ -141,6 +140,18 @@ static int p_send_to_child(struct core_object *co, struct state_object *so, stru
 static void p_remove_connection(struct core_object *co, struct parent_struct *parent,
                                 struct pollfd *pollfd, size_t conn_index, struct pollfd *listen_pollfd);
 
+
+/**
+ * c_run_child_process
+ * <p>
+ * Set up and run a child process that handles action on a socket passed to it by the server.
+ * </p>
+ * @param co the core object
+ * @param so the state object
+ * @return 0 on success, -1 and set errno on failure.
+ */
+static int c_run_child_process(struct core_object *co, struct state_object *so);
+
 /**
  * c_receive_and_handle_messages
  * <p>
@@ -150,7 +161,45 @@ static void p_remove_connection(struct core_object *co, struct parent_struct *pa
  * @param co the core_object
  * @return 0 on success, -1 and set errno on failure
  */
-static int c_receive_and_handle_messages(struct core_object *co, struct state_object *so);
+static int c_receive_and_handle_messages(struct core_object *co, struct state_object *so, struct child_struct *child);
+
+/**
+ * c_get_file_description_from_domain_socket
+ * <p>
+ * Wait on the domain socket read semaphore for a file description to be sent on the domain socket. Put the domain
+ * socket information into the child struct.
+ * </p>
+ * @param co the core object
+ * @param so the state object
+ * @param child the child struct
+ * @return 0 on success, -1 and set errno on failure.
+ */
+static int c_get_file_description_from_domain_socket(struct core_object *co, struct state_object *so,
+                                                     struct child_struct *child);
+
+/**
+ * c_recv_and_log
+ * <p>
+ * Receive a message on the socket in the child struct. Log information about the read.
+ * </p>
+ * @param co the core object
+ * @param so the state object
+ * @param child the child struct
+ * @return 0  on success, -1 and set errno on failure.
+ */
+static int c_recv_and_log(struct core_object *co, struct state_object *so, struct child_struct *child);
+
+/**
+ * c_inform_parent_recv_finished
+ * <p>
+ * Send the original fd number to the parent over the child-parent pipe. Close the socket on the child.
+ * </p>
+ * @param co the core object
+ * @param so the state object
+ * @param child the child struct
+ * @return 0 on success, -1 and set errno on failure.
+ */
+static int c_inform_parent_recv_finished(struct core_object *co, struct state_object *so, struct child_struct *child);
 
 int setup_process_server(struct core_object *co, struct state_object *so)
 {
@@ -225,7 +274,7 @@ int run_process_server(struct core_object *co, struct state_object *so)
     {
         close_fd_report_undefined_error(so->c_to_p_pipe_fds[READ], "state of child pipe read is undefined.");
         close_fd_report_undefined_error(so->domain_fds[WRITE], "state of child domain socket is undefined.");
-        c_receive_and_handle_messages(co, so);
+        c_run_child_process(co, so);
     }
     
     return 0;
@@ -273,7 +322,7 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so, stru
             }
         } else
         {
-            if (p_happy_dappy_communicappy(co, so, pollfds) == -1) // Mom named it; can't change, sorry.
+            if (p_handle_socket_action(co, so, pollfds) == -1) // Mom named it; can't change, sorry.
             {
                 return -1;
             }
@@ -362,6 +411,7 @@ static int p_accept_new_connection(struct core_object *co, struct parent_struct 
     pollfds[pollfd_index].events = POLLIN;
     ++parent->num_connections;
     
+    // Don't need to short-circuit here; will only be in this function if listen socket events == POLLIN.
     if (parent->num_connections >= MAX_CONNECTIONS)
     {
         pollfds->events = 0; // Turn off POLLIN on the listening socket when max connections reached.
@@ -389,7 +439,7 @@ static int p_get_pollfd_index(const struct pollfd *pollfds)
     return conn_index;
 }
 
-static int p_happy_dappy_communicappy(struct core_object *co, struct state_object *so, struct pollfd *pollfds)
+static int p_handle_socket_action(struct core_object *co, struct state_object *so, struct pollfd *pollfds)
 {
     DC_TRACE(co->env);
     struct pollfd *pollfd;
@@ -399,10 +449,12 @@ static int p_happy_dappy_communicappy(struct core_object *co, struct state_objec
         pollfd = pollfds + fd_num;
         if (pollfd->revents == POLLIN)
         {
-            if (p_send_to_child(co, so, so->parent, pollfd, fd_num) == -1)
+            if (p_send_to_child(co, so, pollfd) == -1)
             {
                 return -1;
             }
+            pollfd->fd *= -1; // Disable the pollfd until it is signaled by the child to be re-enabled.
+            
             // NOLINTNEXTLINE(hicpp-signed-bitwise): never negative
         } else if ((pollfd->revents & POLLHUP) || (pollfd->revents & POLLERR))
             // Client has closed other end of socket.
@@ -416,8 +468,7 @@ static int p_happy_dappy_communicappy(struct core_object *co, struct state_objec
     return 0;
 }
 
-static int p_send_to_child(struct core_object *co, struct state_object *so, struct parent_struct *parent,
-                           struct pollfd *active_pollfd, size_t conn_index)
+static int p_send_to_child(struct core_object *co, struct state_object *so, struct pollfd *active_pollfd)
 {
     DC_TRACE(co->env);
     ssize_t        bytes_sent;
@@ -474,21 +525,87 @@ static void p_remove_connection(struct core_object *co, struct parent_struct *pa
     (void) fprintf(stdout, "Client from %s:%d disconnected\n", inet_ntoa(parent->client_addrs[conn_index].sin_addr),
                    ntohs(parent->client_addrs[conn_index].sin_port));
     
-    // zero the pollfd struct, the fd in the state object, and the client_addr in the state object.
+    // Zero the pollfd struct, the fd in the state object, and the client_addr in the state object.
     memset(pollfd, 0, sizeof(struct pollfd));
     memset(&parent->client_addrs[conn_index], 0, sizeof(struct sockaddr_in));
     --parent->num_connections;
     
-    if (parent->num_connections < MAX_CONNECTIONS)
+    // Short-circuit prevent double-setting.
+    if (listen_pollfd->events != POLLIN && parent->num_connections < MAX_CONNECTIONS)
     {
         listen_pollfd->events = POLLIN; // Turn on POLLIN on the listening socket when less than max connections.
     }
 }
 
-static int c_receive_and_handle_messages(struct core_object *co, struct state_object *so)
+static int c_run_child_process(struct core_object *co, struct state_object *so)
+{
+    DC_TRACE(co->env);
+    pid_t            pid;
+    struct sigaction sigint;
+    
+    pid = getpid();
+    
+    (void) fprintf(stdout, "Child process with pid %d started\n", pid);
+    
+    if (setup_signal_handler(&sigint, SIGINT) == -1)
+    {
+        return -1;
+    }
+    if (setup_signal_handler(&sigint, SIGTERM) == -1)
+    {
+        return -1;
+    }
+    
+    if (c_receive_and_handle_messages(co, so, so->child) == -1)
+    {
+        return -1;
+    }
+    
+    return 0;
+}
+
+static int c_receive_and_handle_messages(struct core_object *co, struct state_object *so, struct child_struct *child)
 {
     DC_TRACE(co->env);
     // TODO: in this function the child process will look for action on the domain socket, read a socket, then send the parent fd through the pipe when reading is done.
+    
+    while (GOGO_PROCESS)
+    {
+        if (c_get_file_description_from_domain_socket(co, so, child) == -1)
+        {
+            return -1;
+        }
+        if (c_recv_and_log(co, NULL, child) == -1)
+        {
+            return -1;
+        }
+        if (c_inform_parent_recv_finished(co, so, child) == -1)
+        {
+            return -1;
+        }
+    }
+    
+    return 0;
+}
+
+static int c_get_file_description_from_domain_socket(struct core_object *co, struct state_object *so,
+        struct child_struct *child)
+{
+    // TODO: get file description from domain socket, put it into the child struct.
+    
+    return 0;
+}
+
+static int c_recv_and_log(struct core_object *co, struct state_object *so, struct child_struct *child)
+{
+    // TODO: recv message from socket. Log message information.
+    
+    return 0;
+}
+
+static int c_inform_parent_recv_finished(struct core_object *co, struct state_object *so, struct child_struct *child)
+{
+    // TODO: send the original fd over the parent-child pipe.
     
     return 0;
 }
