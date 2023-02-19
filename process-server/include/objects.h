@@ -37,14 +37,24 @@
 #define WRITE 1
 
 /**
-* Read semaphore name.
+* Pipe read semaphore name.
 */
-#define READ_SEM_NAME "/r_206a08" // Random hex to prevent collision of this filename with others.
+#define PIPE_READ_SEM_NAME "/pr_206a08" // Random hex to prevent collision of this filename with others.
 
 /**
-* Write semaphore name.
+* Pipe write semaphore name.
 */
-#define WRITE_SEM_NAME "/w_206a08"
+#define PIPE_WRITE_SEM_NAME "/pw_206a08"
+
+/**
+* Domain socket read semaphore name.
+*/
+#define DOMAIN_READ_SEM_NAME "/dr_206a08"
+
+/**
+* Domain socket write semaphore name.
+*/
+#define DOMAIN_WRITE_SEM_NAME "/dw_206a08"
 
 /**
 * Log semaphore name.
@@ -57,6 +67,7 @@ struct state_object
     int                  domain_fds[2];
     int                  c_to_p_pipe_fds[2];
     sem_t                *c_to_f_pipe_sems[2];
+    sem_t                *domain_sems[2];
     sem_t                *log_sem;
     struct child_struct  *child;
     struct parent_struct *parent;

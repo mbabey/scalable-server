@@ -113,6 +113,21 @@ static int p_get_pollfd_index(const struct pollfd *pollfds);
 static int p_happy_dappy_communicappy(struct core_object *co, struct state_object *so, struct pollfd *pollfds);
 
 /**
+ * p_send_to_child
+ * <p>
+ * Send an active socket over the domain socket to one of the child processes.
+ * </p>
+ * @param co the core object
+ * @param so the state object
+ * @param parent the parent struct
+ * @param active_pollfd the active socket
+ * @param conn_index the index of the pollfd in the fd array.
+ * @return 0 on success, -1 and set errno on failure
+ */
+static int p_send_to_child(struct core_object *co, struct state_object *so, struct parent_struct *parent,
+                           struct pollfd *active_pollfd, size_t conn_index);
+
+/**
  * p_remove_connection
  * <p>
  * Close a connection and remove the fd from the list of pollfds.
@@ -377,7 +392,7 @@ static int p_happy_dappy_communicappy(struct core_object *co, struct state_objec
         pollfd = pollfds + fd_num;
         if (pollfd->revents == POLLIN)
         {
-            if (p_send_to_child(co, pollfd, fd_num) == -1)
+            if (p_send_to_child(co, so, so->parent, pollfd, fd_num) == -1)
             {
                 return -1;
             }
@@ -390,6 +405,18 @@ static int p_happy_dappy_communicappy(struct core_object *co, struct state_objec
         }
         pollfd->revents = 0;
     }
+    
+    return 0;
+}
+
+static int p_send_to_child(struct core_object *co, struct state_object *so, struct parent_struct *parent,
+                           struct pollfd *active_pollfd, size_t conn_index)
+{
+    DC_TRACE(co->env);
+    
+    // send the active fd on the domain socket... yeah that's it
+    
+    so->
     
     return 0;
 }
