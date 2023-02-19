@@ -66,14 +66,14 @@ static int setup_signal_handler(struct sigaction *sa, int signal);
 static void end_gogo_handler(int signal);
 
 /**
- * p_toggle_file_descriptors
+ * p_watch_pipe_reenable_fds
  * <p>
  * Wait for the read semaphore to be signaled on the child-to-parent pipe. Invert the fd that is passed in the pipe.
  * </p>
  * @param arg the state object
  * @return NULL
  */
-static void *p_toggle_file_descriptors(void *arg);
+static void *p_watch_pipe_reenable_fds(void *arg);
 
 /**
  * p_accept_new_connection
@@ -299,7 +299,7 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so, stru
     {
         return -1;
     }
-    if (pthread_create(&fd_inverter_thread, NULL, p_toggle_file_descriptors, so) != 0)
+    if (pthread_create(&fd_inverter_thread, NULL, p_watch_pipe_reenable_fds, so) != 0)
     {
         return -1;
     }
@@ -359,11 +359,12 @@ static void end_gogo_handler(int signal)
 
 #pragma GCC diagnostic pop
 
-static void *p_toggle_file_descriptors(void *arg)
+static void *p_watch_pipe_reenable_fds(void *arg)
 {
     struct state_object *so      = (struct state_object *) arg;
     struct pollfd       *pollfds = so->parent->pollfds;
     int                 fd;
+    ssize_t bytes_read;
     
     while (GOGO_PROCESS)
     {
@@ -371,19 +372,26 @@ static void *p_toggle_file_descriptors(void *arg)
         {
             if (errno != EINTR)
             {
-                fprintf(stderr, "Error waiting for read sem in pipe listening thread: %s", strerror(errno));
+                (void) fprintf(stderr, "Error waiting for read sem in pipe listening thread: %s", strerror(errno));
             }
             return NULL;
         }
-        read(so->c_to_p_pipe_fds[READ], &fd, sizeof(int));
+        
+        bytes_read = read(so->c_to_p_pipe_fds[READ], &fd, sizeof(int));
+        
         sem_post(so->c_to_f_pipe_sems[WRITE]);
+        
+        if (bytes_read == -1)
+        {
+            (void) fprintf(stderr, "Error reading pipe listening thread: %s", strerror(errno));
+        }
         
         // Loop across pollfds. When match is found, invert the fd at that position.
         for (size_t p = 1; p <= MAX_CONNECTIONS; ++p)
         {
-            if (pollfds[p].fd == fd || pollfds[p].fd == fd * -1)
+            if (pollfds[p].fd == fd * -1) // pollfd.fd here is negative.
             {
-                pollfds[p].fd = pollfds[p].fd * -1;
+                pollfds[p].fd = pollfds[p].fd * -1; // Invert pollfd.fd so it will be read from in poll loop.
             }
         }
     }
