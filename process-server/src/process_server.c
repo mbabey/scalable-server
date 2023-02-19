@@ -25,6 +25,19 @@ volatile int GOGO_PROCESS = 1;
 // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 /**
+ * fork_child_processes
+ * <p>
+ * Fork the main process into the specified number of child processes. Save the child pids. Set the parent
+ * struct to NULL in the child and the child struct the NULL in the parent to identify whether a process
+ * is a parent or a child,
+ * </p>
+ * @param co the core object
+ * @param so the state object
+ * @return 0 on success, -1 and set errno on failure.
+ */
+static int fork_child_processes(struct core_object *co, struct state_object *so);
+
+/**
  * p_run_poll_loop
  * <p>
  * Run the process server. Wait for activity on one of the processed sockets; if activity
@@ -35,17 +48,6 @@ volatile int GOGO_PROCESS = 1;
  * @return 0 on success, -1 and set errno on failure
  */
 static int p_run_poll_loop(struct core_object *co, struct state_object *so, struct parent_struct *parent);
-
-/**
- * c_receive_and_handle_messages
- * <p>
- * Look for action on the domain socket, read the sent client socket, then send the client fd known by the parent
- * through the pipe when reading is done.
- * </p>
- * @param co the core_object
- * @return 0 on success, -1 and set errno on failure
- */
-static int c_receive_and_handle_messages(struct core_object *co, struct state_object *so);
 
 /**
  * setup_signal_handler
@@ -64,19 +66,6 @@ static int setup_signal_handler(struct sigaction *sa, int signal);
 static void end_gogo_handler(int signal);
 
 /**
- * fork_child_processes
- * <p>
- * Fork the main process into the specified number of child processes. Save the child pids. Set the parent
- * struct to NULL in the child and the child struct the NULL in the parent to identify whether a process
- * is a parent or a child,
- * </p>
- * @param co the core object
- * @param so the state object
- * @return 0 on success, -1 and set errno on failure.
- */
-static int fork_child_processes(struct core_object *co, struct state_object *so);
-
-/**
  * p_toggle_file_descriptors
  * <p>
  * Wait for the read semaphore to be signaled on the child-to-parent pipe. Invert the fd that is passed in the pipe.
@@ -85,6 +74,41 @@ static int fork_child_processes(struct core_object *co, struct state_object *so)
  * @return NULL
  */
 static void *p_toggle_file_descriptors(void *arg);
+
+/**
+ * p_accept_new_connection
+ * <p>
+ * Accept a new connection to the server. Set the value of the fd
+ * increment the num connections in the state object and. Log the connection
+ * in the log file.
+ * </p>
+ * @param co the core object
+ * @param parent the state object
+ * @param pollfds the pollfd array
+ * @return the 0 on success, -1 and set errno on failure
+ */
+static int p_accept_new_connection(struct core_object *co, struct parent_struct *parent, struct pollfd *pollfds);
+
+/**
+ * p_get_pollfd_index
+ * <p>
+ * Find an index in the file descriptor array where file descriptor == 0.
+ * </p>
+ * @param pollfds the file descriptor array
+ * @return the first index where file descriptor == 0
+ */
+static int p_get_pollfd_index(const struct pollfd *pollfds);
+
+/**
+ * c_receive_and_handle_messages
+ * <p>
+ * Look for action on the domain socket, read the sent client socket, then send the client fd known by the parent
+ * through the pipe when reading is done.
+ * </p>
+ * @param co the core_object
+ * @return 0 on success, -1 and set errno on failure
+ */
+static int c_receive_and_handle_messages(struct core_object *co, struct state_object *so);
 
 int setup_process_server(struct core_object *co, struct state_object *so)
 {
@@ -266,37 +290,53 @@ static void *p_toggle_file_descriptors(void *arg)
     return NULL;
 }
 
-static int poll_accept(struct core_object *co, struct state_object *so, struct pollfd *pollfds)
+static int p_accept_new_connection(struct core_object *co, struct parent_struct *parent, struct pollfd *pollfds)
 {
     DC_TRACE(co->env);
     int       new_cfd;
-    size_t    conn_index;
+    size_t    pollfd_index;
     socklen_t sockaddr_size;
     
-    conn_index    = get_conn_index(so->client_fd);
+    pollfd_index  = p_get_pollfd_index(parent->pollfds);
     sockaddr_size = sizeof(struct sockaddr_in);
     
-    new_cfd = accept(so->listen_fd, (struct sockaddr *) &so->client_addr[conn_index], &sockaddr_size);
+    // pollfds->fd is listen socket.
+    new_cfd = accept(pollfds->fd, (struct sockaddr *) &parent->client_addrs[pollfd_index], &sockaddr_size);
     if (new_cfd == -1)
     {
         return -1;
     }
     
-    so->client_fd[conn_index] = new_cfd; // Only save in array if valid.
-    pollfds[conn_index + 1].fd     = new_cfd; // Plus one because listen_fd.
-    pollfds[conn_index + 1].events = POLLIN;
-    ++so->num_connections;
+    // Only save in array if valid.
+    pollfds[pollfd_index].fd     = new_cfd; // Plus one because listen_fd.
+    pollfds[pollfd_index].events = POLLIN;
+    ++parent->num_connections;
     
-    if (so->num_connections >= MAX_CONNECTIONS)
+    if (parent->num_connections >= MAX_CONNECTIONS)
     {
         pollfds->events = 0; // Turn off POLLIN on the listening socket when max connections reached.
     }
     
     // NOLINTNEXTLINE(concurrency-mt-unsafe): No threads here
-    (void) fprintf(stdout, "Client connected from %s:%d\n", inet_ntoa(so->client_addr[conn_index].sin_addr),
-                   ntohs(so->client_addr[conn_index].sin_port));
+    (void) fprintf(stdout, "Client connected from %s:%d\n", inet_ntoa(parent->client_addrs[pollfd_index].sin_addr),
+                   ntohs(parent->client_addrs[pollfd_index].sin_port));
     
     return 0;
+}
+
+static int p_get_pollfd_index(const struct pollfd *pollfds)
+{
+    int conn_index = 0;
+    
+    for (int i = 0; i < 1 + MAX_CONNECTIONS; ++i)
+    {
+        if (pollfds[i].fd == 0)
+        {
+            conn_index = i;
+            break;
+        }
+    }
+    return conn_index;
 }
 
 static int c_receive_and_handle_messages(struct core_object *co, struct state_object *so)
