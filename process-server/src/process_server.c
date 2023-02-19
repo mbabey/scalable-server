@@ -34,7 +34,7 @@ volatile int GOGO_PROCESS = 1;
  * @param co the core object
  * @return 0 on success, -1 and set errno on failure
  */
-static int p_run_poll_loop(struct core_object *co, struct parent_struct *parent);
+static int p_run_poll_loop(struct core_object *co, struct state_object *so, struct parent_struct *parent);
 
 /**
  * c_receive_and_handle_messages
@@ -154,7 +154,7 @@ int run_process_server(struct core_object *co, struct state_object *so)
         close_fd_report_undefined_error(so->c_to_p_pipe_fds[WRITE], "state of parent pipe write is undefined.");
         close_fd_report_undefined_error(so->domain_fds[READ], "state of parent domain socket is undefined.");
         p_open_process_server_for_listen(co, so->parent, &co->listen_addr);
-        p_run_poll_loop(co, so->parent);
+        p_run_poll_loop(co, so, so->parent);
     } else if (so->child)
     {
         close_fd_report_undefined_error(so->c_to_p_pipe_fds[READ], "state of child pipe read is undefined.");
@@ -165,7 +165,7 @@ int run_process_server(struct core_object *co, struct state_object *so)
     return 0;
 }
 
-static int p_run_poll_loop(struct core_object *co, struct parent_struct *parent)
+static int p_run_poll_loop(struct core_object *co, struct state_object *so, struct parent_struct *parent)
 {
     DC_TRACE(co->env);
     struct sigaction sigint;
@@ -182,7 +182,7 @@ static int p_run_poll_loop(struct core_object *co, struct parent_struct *parent)
     {
         return -1;
     }
-    if (pthread_create(&fd_inverter_thread, NULL, p_toggle_file_descriptors, co->so) != 0)
+    if (pthread_create(&fd_inverter_thread, NULL, p_toggle_file_descriptors, so) != 0)
     {
         return -1;
     }
@@ -220,6 +220,27 @@ static int p_run_poll_loop(struct core_object *co, struct parent_struct *parent)
     return 0;
 }
 
+static int setup_signal_handler(struct sigaction *sa, int signal)
+{
+    sigemptyset(&sa->sa_mask);
+    sa->sa_flags   = 0;
+    sa->sa_handler = end_gogo_handler;
+    if (sigaction(signal, sa, 0) == -1)
+    {
+        return -1;
+    }
+    return 0;
+}
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+static void end_gogo_handler(int signal)
+{
+    GOGO_PROCESS = 0;
+}
+
+#pragma GCC diagnostic pop
+
 static void *p_toggle_file_descriptors(void *arg)
 {
     struct state_object *so      = (struct state_object *) arg;
@@ -245,6 +266,39 @@ static void *p_toggle_file_descriptors(void *arg)
     return NULL;
 }
 
+static int poll_accept(struct core_object *co, struct state_object *so, struct pollfd *pollfds)
+{
+    DC_TRACE(co->env);
+    int       new_cfd;
+    size_t    conn_index;
+    socklen_t sockaddr_size;
+    
+    conn_index    = get_conn_index(so->client_fd);
+    sockaddr_size = sizeof(struct sockaddr_in);
+    
+    new_cfd = accept(so->listen_fd, (struct sockaddr *) &so->client_addr[conn_index], &sockaddr_size);
+    if (new_cfd == -1)
+    {
+        return -1;
+    }
+    
+    so->client_fd[conn_index] = new_cfd; // Only save in array if valid.
+    pollfds[conn_index + 1].fd     = new_cfd; // Plus one because listen_fd.
+    pollfds[conn_index + 1].events = POLLIN;
+    ++so->num_connections;
+    
+    if (so->num_connections >= MAX_CONNECTIONS)
+    {
+        pollfds->events = 0; // Turn off POLLIN on the listening socket when max connections reached.
+    }
+    
+    // NOLINTNEXTLINE(concurrency-mt-unsafe): No threads here
+    (void) fprintf(stdout, "Client connected from %s:%d\n", inet_ntoa(so->client_addr[conn_index].sin_addr),
+                   ntohs(so->client_addr[conn_index].sin_port));
+    
+    return 0;
+}
+
 static int c_receive_and_handle_messages(struct core_object *co, struct state_object *so)
 {
     DC_TRACE(co->env);
@@ -252,28 +306,6 @@ static int c_receive_and_handle_messages(struct core_object *co, struct state_ob
     
     return 0;
 }
-
-static int setup_signal_handler(struct sigaction *sa, int signal)
-{
-    sigemptyset(&sa->sa_mask);
-    sa->sa_flags   = 0;
-    sa->sa_handler = end_gogo_handler;
-    if (sigaction(signal, sa, 0) == -1)
-    {
-        return -1;
-    }
-    return 0;
-}
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-
-static void end_gogo_handler(int signal)
-{
-    GOGO_PROCESS = 0;
-}
-
-#pragma GCC diagnostic pop
 
 void destroy_process_state(struct core_object *co, struct state_object *so)
 {
