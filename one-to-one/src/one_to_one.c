@@ -8,14 +8,27 @@
 #include <sys/socket.h> // back compatability
 #include <sys/types.h>  // back compatability
 #include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <sys/select.h>
 
+
+/**
+ * Defines if the server is running
+ */
+// volatile sig_atomic_t running = 1;   // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+
+/**
+ * Maintain a pipe and select for readability on the pipe input.
+ */
+int self_pipe[2];
 
 /**
  * log
  * <p>
  * Log the information from one received message into the log file in Comma Separated Value file format.
  * </p>
- * @param co teh core object
+ * @param co the core object
  * @param so the state object
  * @param fd_num the file descriptor that was read
  * @param bytes the number of bytes read
@@ -23,15 +36,18 @@
  * @param end_time the end time of the read
  * @param elapsed_time_granular the elapsed time in seconds
  */
-
-/**
- * Defines if the server is running
- */
-static volatile sig_atomic_t running;   // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
-
 static void log(struct core_object *co, struct state_object *so, ssize_t bytes,
                 time_t start_time, time_t end_time, double elapsed_time_granular);
 
+/**
+ * check_fd
+ * <p>
+ * Checks any file descriptor along with signal pipe
+ * <p>
+ * @param fd file descriptor
+ * @return returns resulting state
+ */
+static int check_fd(int fd);
 
 struct state_object *setup_state(struct memory_manager *mm)
 {
@@ -48,14 +64,22 @@ struct state_object *setup_state(struct memory_manager *mm)
 
 int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_addr)
 {
-    int fd;
-    
-    fd = socket(PF_INET, SOCK_STREAM, 0);
+    // set up self-pipe
+    if (pipe(self_pipe) < 0) {
+        return -1;
+    }
+
+    struct sigaction sa;
+    if (set_signal_handler(&sa, handle_sigint) == -1) {
+        return -1;
+    }
+
+    int fd = socket(PF_INET, SOCK_STREAM, 0);
     if (fd == -1)
     {
         return -1;
     }
-    
+
     if (bind(fd, (struct sockaddr *) listen_addr, sizeof(struct sockaddr_in)) == -1)
     {
         (void) close(fd);
@@ -71,13 +95,40 @@ int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_a
     /* Only assign if absolute success. listen_fd == 0 can be used during teardown
      * to determine whether there is a socket to close. */
     so->listen_fd = fd;
-    
+
     return 0;
+}
+
+static int check_fd(int fd){
+    fd_set rfds;
+    FD_ZERO(&rfds);
+    FD_SET(fd, &rfds);
+    FD_SET(self_pipe[0], &rfds);
+
+    // block on select() until a new connection is received or self-pipe is written to
+    int maxfd = fd > self_pipe[0] ? fd : self_pipe[0];
+    int num_ready = select(maxfd + 1, &rfds, NULL, NULL, NULL);
+    if (num_ready < 0) { //error
+        if (errno == EINTR){
+            return CLIENT_RESULT_TERMINATION;
+        } else {
+            return CLIENT_RESULT_ERROR;
+        }
+    }
+    if (FD_ISSET(self_pipe[0], &rfds)) {
+        return CLIENT_RESULT_TERMINATION;
+    }
+    return CLIENT_RESULT_SUCCESS;
 }
 
 int accept_conn(int listen_fd, int* fd_out){
     struct sockaddr addr;
     socklen_t len = sizeof(addr);
+
+    int checked_fd = check_fd(listen_fd);
+    if (checked_fd != CLIENT_RESULT_SUCCESS){
+        return checked_fd;
+    }
 
     int fd = accept(listen_fd, &addr, &len);
     if (fd == -1){
@@ -98,9 +149,26 @@ enum msg_result {
     MSG_RESULT_TERMINATION,
 };
 
+static int check_fd_msg(int fd){
+    switch(check_fd(fd)){
+        case CLIENT_RESULT_SUCCESS:
+            return MSG_RESULT_SUCCESS;
+        case CLIENT_RESULT_TERMINATION:
+            return MSG_RESULT_TERMINATION;
+        default:
+            return MSG_RESULT_ERROR;
+    }
+}
+
 static int receive_message (struct core_object *co){
     uint32_t msg_size;
-    ssize_t read_bytes = recv(co->so->client_fd, &msg_size, sizeof (msg_size), MSG_WAITALL); // TODO check return value
+    {
+        int checked_fd = check_fd_msg(co->so->client_fd);
+        if (checked_fd != MSG_RESULT_SUCCESS) {
+            return checked_fd;
+        }
+    }
+    ssize_t read_bytes = recv(co->so->client_fd, &msg_size, sizeof (msg_size), MSG_WAITALL);
     if (read_bytes == 0) {
         return MSG_RESULT_CLOSED;
     } else if (read_bytes == -1) {
@@ -113,8 +181,13 @@ static int receive_message (struct core_object *co){
     time_t start_time = time(NULL);
     clock_t start_time_granular = clock();
 
+
     // Reducing the size of the msg to reach the end of the msg.
     for (uint32_t remaining_bytes = msg_size; remaining_bytes > 0; remaining_bytes -= read_bytes) {
+        int checked_fd = check_fd_msg(co->so->client_fd);
+        if (checked_fd != MSG_RESULT_SUCCESS){
+            return checked_fd;
+        }
         read_bytes = recv(co->so->client_fd, &buf, sizeof(buf) < remaining_bytes ? sizeof(buf) : remaining_bytes, 0);
         if (read_bytes == 0) {
             return MSG_RESULT_CLOSED;
@@ -148,8 +221,8 @@ static int receive_message (struct core_object *co){
 }
 
 void handle_sigint(int sig_num){
-    running = 0;
-    printf("Interrupted\n");
+    char c = 'x';
+    write(self_pipe[1], &c, 1);
 }
 
 int set_signal_handler(struct sigaction *sa, void (*signal_handler)(int))
