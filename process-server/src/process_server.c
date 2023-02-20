@@ -525,7 +525,7 @@ static int p_handle_socket_action(struct core_object *co, struct state_object *s
             {
                 return -1;
             }
-//            pollfd->fd *= -1; // Disable the pollfd until it is signaled by the child to be re-enabled.
+            pollfd->fd *= -1; // Disable the pollfd until it is signaled by the child to be re-enabled.
             
             // NOLINTNEXTLINE(hicpp-signed-bitwise): never negative
         } else if ((pollfd->revents & POLLHUP) || (pollfd->revents & POLLERR))
@@ -847,6 +847,8 @@ c_log(struct core_object *co, struct state_object *so, struct child_struct *chil
                    client_port, bytes,
                    (start_time_str) ? start_time_str : "NULL", (end_time_str) ? end_time_str : "NULL",
                    elapsed_time_granular);
+    
+    sem_post(so->log_sem);
     
     return 0;
 }
