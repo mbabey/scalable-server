@@ -240,7 +240,7 @@ static int p_open_process_server_for_listen(struct core_object *co, struct paren
     }
     
     // NOLINTNEXTLINE(concurrency-mt-unsafe): No threads here
-    (void) fprintf(stdout, "Server running on connected from %s:%d\n", inet_ntoa(listen_addr->sin_addr),
+    (void) fprintf(stdout, "Server running on %s:%d\n", inet_ntoa(listen_addr->sin_addr),
                    ntohs(listen_addr->sin_port));
     
     parent->pollfds[0].fd     = fd;
@@ -256,14 +256,11 @@ void p_destroy_parent_state(struct core_object *co, struct state_object *so, str
     
     FOR_EACH_CHILD_c_IN_CHILD_PIDS // Send signals to child processes real quick.
     {
-        printf("Killing child %d\n", so->child_pids[c]);
         kill(so->child_pids[c], SIGINT);
     }
     FOR_EACH_CHILD_c_IN_CHILD_PIDS // Wait for child processes to wrap up.
     {
-        printf("Waiting for child %d\n", so->child_pids[c]);
         waitpid(so->child_pids[c], &status, 0);
-        printf("Waited for child %d\n", so->child_pids[c]);
     }
     
     close_fd_report_undefined_error(so->c_to_p_pipe_fds[READ], "state of pipe read is undefined.");

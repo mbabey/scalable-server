@@ -208,8 +208,9 @@ static int c_get_message_length(struct core_object *co, const struct child_struc
  * @param end_time the end time of the read
  * @param elapsed_time_granular the elapsed time in seconds
  */
-static int c_log(struct core_object *co, struct state_object *so, struct child_struct *child,
-                 ssize_t bytes, time_t start_time, time_t end_time, double elapsed_time_granular);
+static int
+c_log(struct core_object *co, struct state_object *so, struct child_struct *child, ssize_t bytes, time_t start_time,
+      time_t end_time, double elapsed_time_granular, clock_t end_time_granular);
 
 /**
  * c_inform_parent_recv_finished
@@ -229,7 +230,7 @@ int setup_process_server(struct core_object *co, struct state_object *so)
     
     // Set up the headers for the log file.
     (void) fprintf(co->log_file,
-                   "process id,local file descriptor,parent file descriptor,ipv4 address,port number,bytes read,start timestamp,end timestamp,elapsed time (s)\n");
+                   "process id,local file descriptor,parent file descriptor,ipv4 address,port number,bytes read,start timestamp,end timestamp,elapsed time (s),time index\n");
     
     so = setup_process_state(co->mm);
     if (!so)
@@ -648,8 +649,6 @@ static int c_recv_log_notify_parent_respond(struct core_object *co, struct state
         return -1;
     }
     
-    printf("%d bytes to read: %d\n", getpid(), bytes_to_read);
-    
     bytes               = 1;
     bytes_read          = 0;
     start_time          = time(NULL);
@@ -674,7 +673,7 @@ static int c_recv_log_notify_parent_respond(struct core_object *co, struct state
     
     elapsed_time_granular = (double) (end_time_granular - start_time_granular) / CLOCKS_PER_SEC;
     
-    if (c_log(co, so, child, bytes_read, start_time, end_time, elapsed_time_granular) == -1)
+    if (c_log(co, so, child, bytes_read, start_time, end_time, elapsed_time_granular, end_time_granular) == -1)
     {
         return -1;
     }
@@ -718,8 +717,8 @@ static int c_get_message_length(struct core_object *co, const struct child_struc
     return 0;
 }
 
-static int c_log(struct core_object *co, struct state_object *so, struct child_struct *child,
-                 ssize_t bytes, time_t start_time, time_t end_time, double elapsed_time_granular)
+static int c_log(struct core_object *co, struct state_object *so, struct child_struct *child, ssize_t bytes,
+                 time_t start_time, time_t end_time, double elapsed_time_granular, clock_t end_time_granular)
 {
     pid_t     pid;
     int       fd_in_child;
@@ -748,10 +747,10 @@ static int c_log(struct core_object *co, struct state_object *so, struct child_s
     
     /* log the connection index, the file descriptor, the client IP, the client port,
      * the number of bytes read, the start time, and the end time */
-    (void) fprintf(co->log_file, "%d,%d,%d,%s,%d,%lu,%s,%s,%lf\n", pid, fd_in_child, fd_in_parent, client_addr,
+    (void) fprintf(co->log_file, "%d,%d,%d,%s,%d,%lu,%s,%s,%lf,%lu\n", pid, fd_in_child, fd_in_parent, client_addr,
                    client_port, bytes,
                    (start_time_str) ? start_time_str : "NULL", (end_time_str) ? end_time_str : "NULL",
-                   elapsed_time_granular);
+                   elapsed_time_granular, end_time_granular);
     
     sem_post(so->log_sem);
     
