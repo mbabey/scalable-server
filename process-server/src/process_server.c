@@ -282,6 +282,13 @@ static int fork_child_processes(struct core_object *co, struct state_object *so)
             {
                 return -1; // Will go to ERROR state in child process.
             }
+    
+            close_fd_report_undefined_error(so->c_to_p_pipe_fds[READ], "state of parent pipe write is undefined.");
+            close_fd_report_undefined_error(so->domain_fds[WRITE], "state of parent domain socket is undefined.");
+    
+            so->c_to_p_pipe_fds[READ] = 0;
+            so->domain_fds[WRITE] = 0;
+            
             break; // Do not fork bomb.
         }
     }
@@ -293,6 +300,12 @@ static int fork_child_processes(struct core_object *co, struct state_object *so)
             return -1;
         }
         so->child = NULL; // Here for clarity; will already be null.
+        
+        close_fd_report_undefined_error(so->c_to_p_pipe_fds[WRITE], "state of parent pipe write is undefined.");
+        close_fd_report_undefined_error(so->domain_fds[READ], "state of parent domain socket is undefined.");
+    
+        so->c_to_p_pipe_fds[WRITE] = 0;
+        so->domain_fds[READ] = 0;
     }
     
     return 0;
@@ -305,8 +318,6 @@ int run_process_server(struct core_object *co, struct state_object *so)
     // In parent, child will be NULL. In child, parent will be NULL. This behaviour can be used to identify if child or parent.
     if (so->parent)
     {
-        close_fd_report_undefined_error(so->c_to_p_pipe_fds[WRITE], "state of parent pipe write is undefined.");
-        close_fd_report_undefined_error(so->domain_fds[READ], "state of parent domain socket is undefined.");
         if (p_open_process_server_for_listen(co, so->parent, &co->listen_addr) == -1)
         {
             return -1;
@@ -317,8 +328,6 @@ int run_process_server(struct core_object *co, struct state_object *so)
         }
     } else if (so->child)
     {
-        close_fd_report_undefined_error(so->c_to_p_pipe_fds[READ], "state of child pipe read is undefined.");
-        close_fd_report_undefined_error(so->domain_fds[WRITE], "state of child domain socket is undefined.");
         if (c_run_child_process(co, so) == -1)
         {
             return -1;
@@ -374,7 +383,7 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so, stru
             }
         } else
         {
-            if (p_handle_socket_action(co, so, pollfds) == -1) // Mom named it; can't change, sorry.
+            if (p_handle_socket_action(co, so, pollfds) == -1)
             {
                 return -1;
             }
@@ -707,11 +716,15 @@ static int c_recv_log_notify_parent_respond(struct core_object *co, struct state
     clock_t  end_time_granular;
     double   elapsed_time_granular;
     
-    if (c_get_message_length(co, child, &buffer, &bytes_to_read) == -1)
-    {
-        return -1;
-    }
+//    if (c_get_message_length(co, child, &buffer, &bytes_to_read) == -1)
+//    {
+//        return -1;
+//    }
     
+    bytes_to_read = 64;
+    size_t buffer_size = (bytes_to_read + 1 * sizeof(char));
+    buffer = (char *) Mmm_malloc(buffer_size, co->mm);
+
     bytes               = 1;
     bytes_read          = 0;
     start_time          = time(NULL);
