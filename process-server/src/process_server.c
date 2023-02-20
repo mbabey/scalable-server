@@ -15,7 +15,6 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include <pthread.h>
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): must be non-const
 /**
@@ -443,7 +442,7 @@ static int p_handle_socket_action(struct core_object *co, struct state_object *s
             
             // NOLINTNEXTLINE(hicpp-signed-bitwise): never negative
         } else if ((pollfd->revents & POLLHUP) || (pollfd->revents & POLLERR)) // Client has closed other end of socket.
-            // On MacOS, POLLHUP will be set; on Linux, POLLERR will be set.
+            // On macOS, POLLHUP will be set; on Linux, POLLERR will be set.
         {
             (p_remove_connection(co, so->parent, pollfd, p - 2, pollfds));
         }

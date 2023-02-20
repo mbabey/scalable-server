@@ -5,8 +5,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#define DEFAULT_PORT_BUT_A_NUMBER 5001
-
 int main(int argc, char **argv)
 {
     int                next_state;
@@ -16,8 +14,8 @@ int main(int argc, char **argv)
     struct dc_error    *err;
     dc_env_tracer      tracer;
     
-//    tracer = NULL;
-    tracer = trace_reporter;
+    tracer = NULL;
+//    tracer = trace_reporter;
     
     err = dc_error_create(true);
     env = dc_env_create(err, false, tracer);
