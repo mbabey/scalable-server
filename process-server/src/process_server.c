@@ -228,6 +228,8 @@ int setup_process_server(struct core_object *co, struct state_object *so)
         return -1;
     }
     
+    co->so = so;
+    
     if (open_pipe_semaphores_domain_sockets(co, so) == -1)
     {
         return -1;
@@ -247,7 +249,7 @@ static int fork_child_processes(struct core_object *co, struct state_object *so)
 {
     pid_t pid;
     memset(so->child_pids, 1, sizeof(so->child_pids));
-    for (size_t c = 0; c < NUM_CHILD_PROCESSES && so->child_pids[c] != 0; ++c)
+    for (size_t c = 0; c < NUM_CHILD_PROCESSES && pid != 0; ++c)
     {
         pid = fork();
         if (pid == -1)
