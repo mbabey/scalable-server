@@ -4,7 +4,7 @@
 #include <netinet/in.h>
 
 struct handle_args {
-    struct sockaddr_in server_addr;
+    struct sockaddr_in * server_addr;
     char * data;
     off_t data_size;
 };

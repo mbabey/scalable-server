@@ -14,15 +14,6 @@
 #pragma ide diagnostic ignored "EndlessLoop" // suppress endless loop warning
 
 /**
- * data_cleanup_handler
- * <p>
- * frees data on thread exit.
- * </p>
- * @param args char pointer to data.
- */
-static void data_cleanup_handler(void *args);
-
-/**
  * hargs_cleanup_handler
  * <p>
  * frees handle arguments struct on exit.
@@ -45,18 +36,19 @@ void * handle(void *handle_args) {
 
     h_args = handle_args;
     f_size = h_args->data_size;
-    pthread_cleanup_push(data_cleanup_handler, (void*)h_args->data) // run data_cleanup_handler on thread exit
     pthread_cleanup_push(hargs_cleanup_handler, (void*)h_args) // run hargs_cleanup_handler on thread exit
 
     while (true) {
         memset(&log, 0, sizeof(struct logger));
 
         if (TCP_socket(&server_sock) == -1) {
+            close_fd(server_sock);
             return NULL;
         }
 
-        if (init_connection(server_sock, &h_args->server_addr) == -1) {
+        if (init_connection(server_sock, h_args->server_addr) == -1) {
             close_fd(server_sock);
+            sleep(1); // backoff time
         } else {
             // record start time
             log.start_time = time(NULL);
@@ -112,26 +104,19 @@ void * handle(void *handle_args) {
             if (do_log(&log) == -1) {
                 return NULL;
             }
-            printf("DONE\n");
         }
         pthread_testcancel();
     }
 
     pthread_cleanup_pop(1); // should never reach here, but set to 1 to run data_cleanup_handler anyway
-    pthread_cleanup_pop(1); // should never reach here, but set to 1 to run hargs_cleanup_handler anyway
-}
-
-static void data_cleanup_handler(void *args) {
-        char * data;
-
-        data = args;
-        free(data);
 }
 
 static void hargs_cleanup_handler(void *args) {
     struct handle_args * h_args;
 
     h_args = args;
+    free(h_args->data);
+    free(h_args->server_addr);
     free(h_args);
 }
 

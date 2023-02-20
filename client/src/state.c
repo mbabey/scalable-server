@@ -39,7 +39,6 @@ int init_state(struct init_state_params * params, struct state * s, struct dc_er
     if (parse_port(&s->server_port, params->server_port, 10) == -1) return -1;
     if (parse_port(&s->controller_port, params->controller_port, 10) == -1) return -1;
 
-    if (init_addr(&s->server_addr, s->server_ip, s->server_port) == -1) return -1;
     if (init_addr(&s->controller_addr, s->controller_ip, s->controller_port) == -1) return -1;
 
     if (TCP_socket(&s->controller_fd) == -1) return -1;
