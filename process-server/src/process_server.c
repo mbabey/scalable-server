@@ -220,7 +220,6 @@ c_log(struct core_object *co, struct state_object *so, struct child_struct *chil
  */
 static int c_inform_parent_recv_finished(struct core_object *co, struct state_object *so, struct child_struct *child);
 
-
 int setup_process_server(struct core_object *co, struct state_object *so)
 {
     DC_TRACE(co->env);
@@ -356,7 +355,7 @@ static int p_read_pipe_reenable_fd(struct core_object *co, struct state_object *
     
     bytes_read = read(so->c_to_p_pipe_fds[READ], &fd, sizeof(int));
     
-    sem_post(so->c_to_f_pipe_sems[WRITE]);
+    sem_post(so->c_to_f_pipe_sem_write);
     
     if (bytes_read == -1)
     {
@@ -505,19 +504,18 @@ static void p_remove_connection(struct core_object *co, struct parent_struct *pa
 {
     DC_TRACE(co->env);
     
-    // close the fd
     close_fd_report_undefined_error(pollfd->fd, "state of client socket is undefined.");
     
     // NOLINTNEXTLINE(concurrency-mt-unsafe): No threads here
     (void) fprintf(stdout, "Client from %s:%d disconnected\n", inet_ntoa(parent->client_addrs[conn_index].sin_addr),
                    ntohs(parent->client_addrs[conn_index].sin_port));
     
-    // Zero the pollfd struct, the fd in the state object, and the client_addr in the state object.
+    // Zero the pollfd struct, the client_addr in the parent object, and decrement the connection count.
     memset(pollfd, 0, sizeof(struct pollfd));
     memset(&parent->client_addrs[conn_index], 0, sizeof(struct sockaddr_in));
     --parent->num_connections;
     
-    // Short-circuit prevent double-setting.
+    // Short-circuit to prevent reassignment.
     if (listen_pollfd->events != POLLIN && parent->num_connections < MAX_CONNECTIONS)
     {
         listen_pollfd->events = POLLIN; // Turn on POLLIN on the listening socket when less than max connections.
@@ -626,7 +624,6 @@ static int c_get_file_description_from_domain_socket(struct core_object *co, str
     // NOLINTNEXTLINE(concurrency-mt-unsafe): No threads here
     (void) fprintf(stdout, "Child %d handling message from %s:%d\n", getpid(), inet_ntoa(child->client_addr.sin_addr),
                    ntohs(child->client_addr.sin_port));
-//    printf("New fd in process %d: %d; original was %d\n", getpid(), child->client_fd_local, child->client_fd_parent);
     
     return 0;
 }
@@ -660,7 +657,6 @@ static int c_recv_log_notify_parent_respond(struct core_object *co, struct state
     while (bytes_read < bytes_to_read && bytes != 0)
     {
         bytes = recv(child->client_fd_local, buffer + bytes_read, sizeof(buffer), 0); // Recv into buffer
-        printf("Bytes received by process %d: %lu\n", getpid(), bytes);
         if (bytes == -1)
         {
             co->mm->mm_free(co->mm, buffer);
@@ -768,7 +764,7 @@ static int c_inform_parent_recv_finished(struct core_object *co, struct state_ob
     DC_TRACE(co->env);
     ssize_t bytes_written;
     
-    if (sem_wait(so->c_to_f_pipe_sems[WRITE]) == -1) // Wait for the pipe write semaphore.
+    if (sem_wait(so->c_to_f_pipe_sem_write) == -1) // Wait for the pipe write semaphore.
     {
         return (errno == EINTR) ? 0 : -1;
     }
