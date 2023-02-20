@@ -3,6 +3,7 @@
 #include <dc_error/error.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define DEFAULT_PORT_BUT_A_NUMBER 5001
 
@@ -49,8 +50,11 @@ int main(int argc, char **argv)
             }
             case ERROR:
             {
+                pid_t pid;
+                
+                pid = getpid();
                 // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
-                (void) fprintf(stderr, "Fatal: error during server runtime: %s\n", strerror(errno));
+                (void) fprintf(stderr, "Fatal: error during server %d runtime: %s\n", pid, strerror(errno));
                 next_state = close_server(&co);
                 break;
             }

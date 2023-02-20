@@ -41,7 +41,7 @@ int open_pipe_semaphores_domain_sockets(struct core_object *co, struct state_obj
         return -1;
     }
     
-    if (open_semaphores(NULL, NULL) == -1)
+    if (open_semaphores(co, so) == -1)
     {
         return -1;
     }
@@ -131,14 +131,17 @@ p_open_process_server_for_listen(struct core_object *co, struct parent_struct *p
 
 void p_destroy_parent_state(struct core_object *co, struct state_object *so, struct parent_struct *parent)
 {
+    DC_TRACE(co->env);
     int status;
     
     FOR_EACH_CHILD_c // Send signals to child processes real quick.
     {
+        printf("Killing child %d\n", so->child_pids[c]);
         kill(so->child_pids[c], SIGINT);
     }
     FOR_EACH_CHILD_c // Wait for child processes to wrap up.
     {
+        printf("Waiting for child %d\n", so->child_pids[c]);
         waitpid(so->child_pids[c], &status, 0);
     }
     
@@ -166,6 +169,7 @@ void p_destroy_parent_state(struct core_object *co, struct state_object *so, str
 
 void c_destroy_child_state(struct core_object *co, struct state_object *so, struct child_struct *child)
 {
+    DC_TRACE(co->env);
     close_fd_report_undefined_error(so->c_to_p_pipe_fds[WRITE], "state of pipe write is undefined.");
     close_fd_report_undefined_error(so->domain_fds[READ], "state of child domain socket is undefined.");
     
