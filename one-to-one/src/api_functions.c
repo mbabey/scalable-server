@@ -21,10 +21,10 @@ int initialize_server(struct core_object *co)
         return ERROR;
     }
 
-/*    struct sigaction sa;
+    struct sigaction sa;
     if (set_signal_handler(&sa, handle_sigint) == -1) {
         return ERROR;
-    }*/
+    }
 
 
     return RUN_SERVER;
