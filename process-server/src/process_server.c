@@ -249,6 +249,7 @@ static int fork_child_processes(struct core_object *co, struct state_object *so)
 {
     pid_t pid;
     memset(so->child_pids, 1, sizeof(so->child_pids));
+    pid = 1;
     for (size_t c = 0; c < NUM_CHILD_PROCESSES && pid != 0; ++c)
     {
         pid = fork();
