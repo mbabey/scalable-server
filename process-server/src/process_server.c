@@ -286,12 +286,12 @@ static int fork_child_processes(struct core_object *co, struct state_object *so)
             {
                 return -1; // Will go to ERROR state in child process.
             }
-    
+            
             close_fd_report_undefined_error(so->c_to_p_pipe_fds[READ], "state of parent pipe write is undefined.");
             close_fd_report_undefined_error(so->domain_fds[WRITE], "state of parent domain socket is undefined.");
-    
+            
             so->c_to_p_pipe_fds[READ] = 0;
-            so->domain_fds[WRITE] = 0;
+            so->domain_fds[WRITE]     = 0;
             
             break; // Do not fork bomb.
         }
@@ -307,9 +307,9 @@ static int fork_child_processes(struct core_object *co, struct state_object *so)
         
         close_fd_report_undefined_error(so->c_to_p_pipe_fds[WRITE], "state of parent pipe write is undefined.");
         close_fd_report_undefined_error(so->domain_fds[READ], "state of parent domain socket is undefined.");
-    
+        
         so->c_to_p_pipe_fds[WRITE] = 0;
-        so->domain_fds[READ] = 0;
+        so->domain_fds[READ]       = 0;
     }
     
     return 0;
@@ -677,6 +677,7 @@ static int c_get_file_description_from_domain_socket(struct core_object *co, str
     struct iovec   iovec;
     struct cmsghdr *cmsghdr;
     char           control_buffer[CMSG_SPACE(sizeof(int))]; // Create space for one cmsghdr storing an integer.
+    socklen_t      socklen;
     
     memset(&msghdr, 0, sizeof(struct msghdr));
     memset(&iovec, 0, sizeof(struct iovec));
@@ -704,10 +705,15 @@ static int c_get_file_description_from_domain_socket(struct core_object *co, str
         return -1;
     }
     
+    // Store the information from the message in the child object.
     cmsghdr = CMSG_FIRSTHDR(&msghdr);
     child->client_fd_local = *((int *) CMSG_DATA(cmsghdr)); // The file description.
-    
-    printf("New fd in process %d: %d; original was %d\n", getpid(), child->client_fd_local, child->client_fd_parent);
+    if (getpeername(child->client_fd_local, (struct sockaddr *) &child->client_addr, &socklen) == -1)
+    {
+        return -1;
+    }
+
+//    printf("New fd in process %d: %d; original was %d\n", getpid(), child->client_fd_local, child->client_fd_parent);
     
     return 0;
 }
@@ -724,7 +730,7 @@ static int c_recv_log_notify_parent_respond(struct core_object *co, struct state
     clock_t  start_time_granular;
     clock_t  end_time_granular;
     double   elapsed_time_granular;
-    
+
 //    if (c_get_message_length(co, child, &buffer, &bytes_to_read) == -1)
 //    {
 //        return -1;
@@ -733,7 +739,7 @@ static int c_recv_log_notify_parent_respond(struct core_object *co, struct state
     bytes_to_read = 3;
     size_t buffer_size = (bytes_to_read + 1 * sizeof(char));
     buffer = (char *) Mmm_malloc(buffer_size, co->mm);
-
+    
     bytes               = 1;
     bytes_read          = 0;
     start_time          = time(NULL);
@@ -817,27 +823,15 @@ c_log(struct core_object *co, struct state_object *so, struct child_struct *chil
     char      *end_time_str;
     
     // NOLINTBEGIN(concurrency-mt-unsafe): No threads here
-    pid          = getpid();
-    fd_in_child  = child->client_fd_local;
-    fd_in_parent = child->client_fd_parent;
-    client_addr  = inet_ntoa(child->client_addr.sin_addr);
-    client_port  = ntohs(child->client_addr.sin_port);
-    if (start_time)
-    {
-        start_time_str = ctime(&start_time);
-        *(start_time_str + strlen(start_time_str) - 1) = '\0'; // Remove newline
-    } else
-    {
-        start_time_str = NULL;
-    }
-    if (end_time)
-    {
-        end_time_str = ctime(&end_time);
-        *(end_time_str + strlen(end_time_str) - 1) = '\0'; // Remove newline
-    } else
-    {
-        end_time_str = NULL;
-    }
+    pid            = getpid();
+    fd_in_child    = child->client_fd_local;
+    fd_in_parent   = child->client_fd_parent;
+    client_addr    = inet_ntoa(child->client_addr.sin_addr);
+    client_port    = ntohs(child->client_addr.sin_port);
+    start_time_str = ctime(&start_time);
+    *(start_time_str + strlen(start_time_str) - 1) = '\0'; // Remove newline
+    end_time_str = ctime(&end_time);
+    *(end_time_str + strlen(end_time_str) - 1) = '\0'; // Remove newline
     // NOLINTEND(concurrency-mt-unsafe)
     
     if (sem_wait(so->log_sem) == -1)
