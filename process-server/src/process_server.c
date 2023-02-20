@@ -253,6 +253,10 @@ int setup_process_server(struct core_object *co, struct state_object *so)
     
     GOGO_PROCESS = 1;
     
+    // Set up the headers for the log file.
+    (void) fprintf(co->log_file,
+                   "process id,local file descriptor,parent file descriptor,ipv4 address,port number,bytes read,start timestamp,end timestamp,elapsed time (s)\n");
+    
     if (fork_child_processes(co, so) == -1)
     {
         return -1;
