@@ -66,14 +66,14 @@ static int setup_signal_handler(struct sigaction *sa, int signal);
 static void end_gogo_handler(int signal);
 
 /**
- * p_watch_pipe_reenable_fds
+ * p_read_pipe_reenable_fd
  * <p>
  * Wait for the read semaphore to be signaled on the child-to-parent pipe. Invert the fd that is passed in the pipe.
  * </p>
  * @param arg the state object
  * @return NULL
  */
-static void *p_watch_pipe_reenable_fds(void *arg);
+static int p_read_pipe_reenable_fd(struct core_object *co, struct state_object *so, struct pollfd *pollfds);
 
 /**
  * p_accept_new_connection
@@ -234,6 +234,10 @@ c_log(struct core_object *co, struct state_object *so, struct child_struct *chil
 static int c_inform_parent_recv_finished(struct core_object *co, struct state_object *so, struct child_struct *child);
 
 
+static int c_setup_child(struct core_object *co, struct state_object *so);
+
+static int p_setup_parent(struct core_object *co, struct state_object *so);
+
 int setup_process_server(struct core_object *co, struct state_object *so)
 {
     DC_TRACE(co->env);
@@ -270,7 +274,7 @@ static int fork_child_processes(struct core_object *co, struct state_object *so)
     pid_t pid;
     
     memset(so->child_pids, 0, sizeof(so->child_pids));
-    for (size_t c = 0; c < NUM_CHILD_PROCESSES; ++c)
+    FOR_EACH_CHILD_c_IN_PROCESSES
     {
         pid = fork();
         if (pid == -1)
@@ -280,37 +284,66 @@ static int fork_child_processes(struct core_object *co, struct state_object *so)
         so->child_pids[c] = pid;
         if (pid == 0)
         {
-            so->parent = NULL; // Here for clarity; will already be null.
-            so->child  = (struct child_struct *) Mmm_calloc(1, sizeof(struct child_struct), co->mm);
-            if (!so->child)
+            if (c_setup_child(co, so) == -1)
             {
-                return -1; // Will go to ERROR state in child process.
+                return -1;
             }
-            
-            close_fd_report_undefined_error(so->c_to_p_pipe_fds[READ], "state of parent pipe write is undefined.");
-            close_fd_report_undefined_error(so->domain_fds[WRITE], "state of parent domain socket is undefined.");
-            
-            so->c_to_p_pipe_fds[READ] = 0;
-            so->domain_fds[WRITE]     = 0;
             
             break; // Do not fork bomb.
         }
     }
     if (pid > 0)
     {
-        so->parent = (struct parent_struct *) Mmm_calloc(1, sizeof(struct parent_struct), co->mm);
-        if (!so->parent)
+        if (p_setup_parent(co, so) == -1)
         {
             return -1;
         }
-        so->child = NULL; // Here for clarity; will already be null.
-        
-        close_fd_report_undefined_error(so->c_to_p_pipe_fds[WRITE], "state of parent pipe write is undefined.");
-        close_fd_report_undefined_error(so->domain_fds[READ], "state of parent domain socket is undefined.");
-        
-        so->c_to_p_pipe_fds[WRITE] = 0;
-        so->domain_fds[READ]       = 0;
     }
+    
+    return 0;
+}
+
+static int c_setup_child(struct core_object *co, struct state_object *so)
+{
+    so->parent = NULL; // Here for clarity; will already be null.
+    so->child  = (struct child_struct *) Mmm_calloc(1, sizeof(struct child_struct), co->mm);
+    if (!so->child)
+    {
+        return -1; // Will go to ERROR state in child process.
+    }
+    
+    close_fd_report_undefined_error(so->c_to_p_pipe_fds[READ], "state of parent pipe write is undefined.");
+    close_fd_report_undefined_error(so->domain_fds[WRITE], "state of parent domain socket is undefined.");
+    
+    so->c_to_p_pipe_fds[READ] = 0;
+    so->domain_fds[WRITE]     = 0;
+    
+    return 0;
+}
+
+static int p_setup_parent(struct core_object *co, struct state_object *so)
+{
+    so->parent = (struct parent_struct *) Mmm_calloc(1, sizeof(struct parent_struct), co->mm);
+    if (!so->parent)
+    {
+        return -1;
+    }
+    so->child = NULL; // Here for clarity; will already be null.
+    
+    close_fd_report_undefined_error(so->c_to_p_pipe_fds[WRITE], "state of parent pipe write is undefined.");
+    close_fd_report_undefined_error(so->domain_fds[READ], "state of parent domain socket is undefined.");
+    
+    so->c_to_p_pipe_fds[WRITE] = 0;
+    so->domain_fds[READ]       = 0;
+    
+    
+    if (p_open_process_server_for_listen(co, so->parent, &co->listen_addr) == -1)
+    {
+        return -1;
+    }
+    
+    so->parent->pollfds[1].fd = so->c_to_p_pipe_fds[READ];
+    so->parent->pollfds[1].fd = POLLIN;
     
     return 0;
 }
@@ -322,10 +355,7 @@ int run_process_server(struct core_object *co, struct state_object *so)
     // In parent, child will be NULL. In child, parent will be NULL. This behaviour can be used to identify if child or parent.
     if (so->parent)
     {
-        if (p_open_process_server_for_listen(co, so->parent, &co->listen_addr) == -1)
-        {
-            return -1;
-        }
+        
         if (p_run_poll_loop(co, so, so->parent) == -1)
         {
             return -1;
@@ -345,7 +375,6 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so, stru
 {
     DC_TRACE(co->env);
     struct sigaction sigint;
-    pthread_t        fd_inverter_thread;
     int              poll_status;
     struct pollfd    *pollfds;
     nfds_t           nfds;
@@ -358,13 +387,9 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so, stru
     {
         return -1;
     }
-    if (pthread_create(&fd_inverter_thread, NULL, p_watch_pipe_reenable_fds, so) != 0)
-    {
-        return -1;
-    }
     
     pollfds = parent->pollfds;
-    nfds    = MAX_CONNECTIONS + 1;
+    nfds    = POLLFDS_SIZE;
     
     while (GOGO_PROCESS)
     {
@@ -386,6 +411,12 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so, stru
             {
                 return -1;
             }
+        } else if ((*(pollfds + 1)).revents == POLLIN)
+        {
+            if (p_read_pipe_reenable_fd(co, so, pollfds) == -1)
+            {
+                return -1;
+            }
         } else
         {
             if (p_handle_socket_action(co, so, pollfds) == -1)
@@ -394,9 +425,6 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so, stru
             }
         }
     }
-    
-    sem_post(so->c_to_f_pipe_sems[READ]); // Kick the thread out.
-    pthread_join(fd_inverter_thread, NULL);
     
     return 0;
 }
@@ -423,36 +451,24 @@ static void end_gogo_handler(int signal)
 
 #pragma GCC diagnostic pop
 
-static void *p_watch_pipe_reenable_fds(void *arg)
+static int p_read_pipe_reenable_fd(struct core_object *co, struct state_object *so, struct pollfd *pollfds)
 {
-    struct state_object *so      = (struct state_object *) arg;
-    struct pollfd       *pollfds = so->parent->pollfds;
-    int                 fd;
-    ssize_t             bytes_read;
+    DC_TRACE(co->env);
+    int     fd;
+    ssize_t bytes_read;
     
     while (GOGO_PROCESS)
     {
-        if (sem_wait(so->c_to_f_pipe_sems[READ]) == -1)
-        {
-            if (errno != EINTR)
-            {
-                (void) fprintf(stdout, "Error waiting for read sem in pipe listening thread: %s", strerror(errno));
-            }
-            return NULL;
-        }
-        
         bytes_read = read(so->c_to_p_pipe_fds[READ], &fd, sizeof(int));
-        printf("Thread read fd %d\n", fd);
         
         sem_post(so->c_to_f_pipe_sems[WRITE]);
         
         if (bytes_read == -1)
         {
-            (void) fprintf(stdout, "Error reading pipe listening thread: %s", strerror(errno));
+            return -1;
         }
         
-        // Loop across pollfds. When match is found, invert the fd at that position.
-        for (size_t p = 1; p <= MAX_CONNECTIONS; ++p)
+        FOR_EACH_SOCKET_POLLFD_p_IN_POLLFDS
         {
             if (pollfds[p].fd == fd * -1) // pollfd.fd here is negative.
             {
@@ -462,7 +478,7 @@ static void *p_watch_pipe_reenable_fds(void *arg)
         }
     }
     
-    return NULL;
+    return 0;
 }
 
 static int p_accept_new_connection(struct core_object *co, struct parent_struct *parent, struct pollfd *pollfds)
@@ -502,9 +518,9 @@ static int p_accept_new_connection(struct core_object *co, struct parent_struct 
 
 static int p_get_pollfd_index(const struct pollfd *pollfds)
 {
-    int conn_index = 0;
+    int conn_index = 2;
     
-    for (int i = 0; i < 1 + MAX_CONNECTIONS; ++i)
+    for (int i = 2; i < POLLFDS_SIZE; ++i)
     {
         if (pollfds[i].fd == 0)
         {
@@ -520,9 +536,9 @@ static int p_handle_socket_action(struct core_object *co, struct state_object *s
     DC_TRACE(co->env);
     struct pollfd *pollfd;
     
-    for (size_t fd_num = 1; fd_num <= MAX_CONNECTIONS; ++fd_num)
+    FOR_EACH_SOCKET_POLLFD_p_IN_POLLFDS
     {
-        pollfd = pollfds + fd_num;
+        pollfd = pollfds + p;
         if (pollfd->revents == POLLIN)
         {
             if (p_send_to_child(co, so, pollfd) == -1)
@@ -536,7 +552,7 @@ static int p_handle_socket_action(struct core_object *co, struct state_object *s
             // Client has closed other end of socket.
             // On MacOS, POLLHUP will be set; on Linux, POLLERR will be set.
         {
-            (p_remove_connection(co, so->parent, pollfd, fd_num - 1, pollfds));
+            (p_remove_connection(co, so->parent, pollfd, p - 1, pollfds));
         }
         pollfd->revents = 0;
     }
@@ -712,7 +728,10 @@ static int c_get_file_description_from_domain_socket(struct core_object *co, str
     {
         return -1;
     }
-
+    
+    // NOLINTNEXTLINE(concurrency-mt-unsafe): No threads here
+    (void) fprintf(stdout, "Child %d handling message from %s:%d\n", getpid(), inet_ntoa(child->client_addr.sin_addr),
+                   ntohs(child->client_addr.sin_port));
 //    printf("New fd in process %d: %d; original was %d\n", getpid(), child->client_fd_local, child->client_fd_parent);
     
     return 0;
@@ -773,8 +792,7 @@ static int c_recv_log_notify_parent_respond(struct core_object *co, struct state
     co->mm->mm_free(co->mm, buffer);
     
     bytes_read = htonl(bytes_read);
-    bytes      = send(child->client_fd_local, &bytes_read, sizeof(bytes_read),
-                      0); // Send back the number of bytes read.
+    bytes      = send(child->client_fd_local, &bytes_read, sizeof(bytes_read), 0); //Send back the number of bytes read.
     if (bytes == -1)
     {
         return -1;
@@ -862,8 +880,6 @@ static int c_inform_parent_recv_finished(struct core_object *co, struct state_ob
     }
     
     bytes_written = write(so->c_to_p_pipe_fds[WRITE], &child->client_fd_parent, sizeof(int));
-    
-    sem_post(so->c_to_f_pipe_sems[READ]); // Signal the pipe read semaphore.
     
     if (bytes_written == -1)
     {

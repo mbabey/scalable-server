@@ -140,12 +140,12 @@ void p_destroy_parent_state(struct core_object *co, struct state_object *so, str
     DC_TRACE(co->env);
     int status;
     
-    FOR_EACH_CHILD_c // Send signals to child processes real quick.
+    FOR_EACH_CHILD_c_IN_PROCESSES // Send signals to child processes real quick.
     {
         printf("Killing child %d\n", so->child_pids[c]);
         kill(so->child_pids[c], SIGINT);
     }
-    FOR_EACH_CHILD_c // Wait for child processes to wrap up.
+    FOR_EACH_CHILD_c_IN_PROCESSES // Wait for child processes to wrap up.
     {
         printf("Waiting for child %d\n", so->child_pids[c]);
         waitpid(so->child_pids[c], &status, 0);

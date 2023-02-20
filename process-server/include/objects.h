@@ -12,14 +12,14 @@
 #define NUM_CHILD_PROCESSES 2 // Must be a power of 2 for magic indexing purposes.
 
 /**
- * For each loop macro for looping over child processes.
- */
-#define FOR_EACH_CHILD_c for (size_t c = 0; c < NUM_CHILD_PROCESSES; ++c)
-
-/**
 * The maximum number of connections that can be accepted by the process server.
 */
 #define MAX_CONNECTIONS 5
+
+/**
+ * The size of the pollfds array. +2 for listen socket and child-to-parent pipe.
+ */
+#define POLLFDS_SIZE 2 + MAX_CONNECTIONS
 
 /**
 * The number of connections that can be queued on the listening socket.
@@ -61,6 +61,16 @@
 */
 #define LOG_SEM_NAME "/l_206a08"
 
+/**
+ * For each loop macro for looping over child processes.
+ */
+#define FOR_EACH_CHILD_c_IN_PROCESSES for (size_t c = 0; c < NUM_CHILD_PROCESSES; ++c)
+
+/**
+ * For each loop macro for looping over socket pollfds.
+ */
+#define FOR_EACH_SOCKET_POLLFD_p_IN_POLLFDS for (size_t p = 2; p < POLLFDS_SIZE; ++p)
+
 struct state_object
 {
     pid_t                child_pids[NUM_CHILD_PROCESSES];
@@ -82,7 +92,7 @@ struct child_struct
 
 struct parent_struct
 {
-    struct pollfd      pollfds[1 + MAX_CONNECTIONS]; // 0th position is the listen socket fd.
+    struct pollfd      pollfds[POLLFDS_SIZE]; // 0th position is the listen socket fd, 1st position is pipe.
     struct sockaddr_in client_addrs[MAX_CONNECTIONS];
     size_t             num_connections;
 };
