@@ -221,7 +221,6 @@ c_log(struct core_object *co, struct state_object *so, struct child_struct *chil
 static int c_inform_parent_recv_finished(struct core_object *co, struct state_object *so, struct child_struct *child);
 
 
-
 int setup_process_server(struct core_object *co, struct state_object *so)
 {
     DC_TRACE(co->env);
@@ -355,24 +354,21 @@ static int p_read_pipe_reenable_fd(struct core_object *co, struct state_object *
     int     fd;
     ssize_t bytes_read;
     
-    while (GOGO_PROCESS)
+    bytes_read = read(so->c_to_p_pipe_fds[READ], &fd, sizeof(int));
+    
+    sem_post(so->c_to_f_pipe_sems[WRITE]);
+    
+    if (bytes_read == -1)
     {
-        bytes_read = read(so->c_to_p_pipe_fds[READ], &fd, sizeof(int));
-        
-        sem_post(so->c_to_f_pipe_sems[WRITE]);
-        
-        if (bytes_read == -1)
+        return -1;
+    }
+    
+    FOR_EACH_SOCKET_POLLFD_p_IN_POLLFDS
+    {
+        if (pollfds[p].fd == fd * -1) // pollfd.fd here is negative.
         {
-            return -1;
-        }
-        
-        FOR_EACH_SOCKET_POLLFD_p_IN_POLLFDS
-        {
-            if (pollfds[p].fd == fd * -1) // pollfd.fd here is negative.
-            {
-                printf("Inverting fd %d\n", pollfds[p].fd);
-                pollfds[p].fd = pollfds[p].fd * -1; // Invert pollfd.fd so it will be read from in poll loop.
-            }
+            printf("Inverting fd %d\n", pollfds[p].fd);
+            pollfds[p].fd = pollfds[p].fd * -1; // Invert pollfd.fd so it will be read from in poll loop.
         }
     }
     
@@ -653,7 +649,7 @@ static int c_recv_log_notify_parent_respond(struct core_object *co, struct state
 //        return -1;
 //    }
     
-    bytes_to_read = 3;
+    bytes_to_read = 1;
     size_t buffer_size = (bytes_to_read + 1 * sizeof(char));
     buffer = (char *) Mmm_malloc(buffer_size, co->mm);
     
