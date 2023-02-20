@@ -266,7 +266,7 @@ static int fork_child_processes(struct core_object *co, struct state_object *so)
             {
                 return -1; // Will go to ERROR state in child process.
             }
-            break;
+            break; // Do not fork bomb.
         }
     }
     if (pid > 0)
@@ -284,8 +284,6 @@ static int fork_child_processes(struct core_object *co, struct state_object *so)
 
 int run_process_server(struct core_object *co, struct state_object *so)
 {
-    // TODO: error checking on -1 ret val in this function.
-    
     DC_TRACE(co->env);
     
     // In parent, child will be NULL. In child, parent will be NULL. This behaviour can be used to identify if child or parent.
@@ -293,13 +291,22 @@ int run_process_server(struct core_object *co, struct state_object *so)
     {
         close_fd_report_undefined_error(so->c_to_p_pipe_fds[WRITE], "state of parent pipe write is undefined.");
         close_fd_report_undefined_error(so->domain_fds[READ], "state of parent domain socket is undefined.");
-        p_open_process_server_for_listen(co, so->parent, &co->listen_addr);
-        p_run_poll_loop(co, so, so->parent);
+        if (p_open_process_server_for_listen(co, so->parent, &co->listen_addr) == -1)
+        {
+            return -1;
+        }
+        if (p_run_poll_loop(co, so, so->parent) == -1)
+        {
+            return -1;
+        }
     } else if (so->child)
     {
         close_fd_report_undefined_error(so->c_to_p_pipe_fds[READ], "state of child pipe read is undefined.");
         close_fd_report_undefined_error(so->domain_fds[WRITE], "state of child domain socket is undefined.");
-        c_run_child_process(co, so);
+        if (c_run_child_process(co, so) == -1)
+        {
+            return -1;
+        }
     }
     
     return 0;
@@ -395,7 +402,7 @@ static void *p_watch_pipe_reenable_fds(void *arg)
         {
             if (errno != EINTR)
             {
-                (void) fprintf(stderr, "Error waiting for read sem in pipe listening thread: %s", strerror(errno));
+                (void) fprintf(stdout, "Error waiting for read sem in pipe listening thread: %s", strerror(errno));
             }
             return NULL;
         }
@@ -406,7 +413,7 @@ static void *p_watch_pipe_reenable_fds(void *arg)
         
         if (bytes_read == -1)
         {
-            (void) fprintf(stderr, "Error reading pipe listening thread: %s", strerror(errno));
+            (void) fprintf(stdout, "Error reading pipe listening thread: %s", strerror(errno));
         }
         
         // Loop across pollfds. When match is found, invert the fd at that position.

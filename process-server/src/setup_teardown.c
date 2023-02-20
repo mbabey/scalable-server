@@ -17,8 +17,7 @@
  * @param log_sem log file semaphore
  * @return 0 on success, set errno and -1 on failure
  */
-static int open_semaphores(sem_t *pipe_read_sem, sem_t *pipe_write_sem, sem_t *domain_read_sem, sem_t *domain_write_sem,
-                           sem_t *log_sem);
+static int open_semaphores(struct core_object *co, struct state_object *so);
 
 struct state_object *setup_process_state(struct memory_manager *mm)
 {
@@ -42,9 +41,7 @@ int open_pipe_semaphores_domain_sockets(struct core_object *co, struct state_obj
         return -1;
     }
     
-    if (open_semaphores(so->c_to_f_pipe_sems[READ], so->c_to_f_pipe_sems[WRITE],
-                        so->domain_sems[READ], so->domain_sems[WRITE],
-                        so->log_sem) == -1)
+    if (open_semaphores(NULL, NULL) == -1)
     {
         return -1;
     }
@@ -57,9 +54,15 @@ int open_pipe_semaphores_domain_sockets(struct core_object *co, struct state_obj
     return 0;
 }
 
-static int open_semaphores(sem_t *pipe_read_sem, sem_t *pipe_write_sem, sem_t *domain_read_sem, sem_t *domain_write_sem,
-                           sem_t *log_sem)
+static int open_semaphores(struct core_object *co, struct state_object *so)
 {
+    DC_TRACE(co->env);
+    sem_t *pipe_read_sem;
+    sem_t *pipe_write_sem;
+    sem_t *domain_read_sem;
+    sem_t *domain_write_sem;
+    sem_t *log_sem;
+    
     // Value 0 will block; value 1 will allow first process to enter, then behave as if value was 0.
     pipe_read_sem    = sem_open(PIPE_READ_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 0);
     pipe_write_sem   = sem_open(PIPE_WRITE_SEM_NAME, O_CREAT, S_IRUSR | S_IWUSR, 1);
@@ -84,9 +87,15 @@ static int open_semaphores(sem_t *pipe_read_sem, sem_t *pipe_write_sem, sem_t *d
         sem_unlink(DOMAIN_READ_SEM_NAME);
         sem_unlink(DOMAIN_WRITE_SEM_NAME);
         sem_unlink(LOG_SEM_NAME);
-        errno    = err_save;
+        errno = err_save;
         return -1;
     }
+    
+    so->c_to_f_pipe_sems[READ]  = pipe_read_sem;
+    so->c_to_f_pipe_sems[WRITE] = pipe_write_sem;
+    so->domain_sems[READ]       = domain_read_sem;
+    so->domain_sems[WRITE]      = domain_write_sem;
+    so->log_sem = log_sem;
     
     return 0;
 }
