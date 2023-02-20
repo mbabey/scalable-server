@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <fcntl.h>
 #include <unistd.h>
 
 int write_fully(int fd, void * data, size_t size) {
@@ -22,26 +21,6 @@ int write_fully(int fd, void * data, size_t size) {
         }
         nwrote += result;
     }
-    return 0;
-}
-
-int set_sock_blocking(int fd, bool blocking) {
-    int result;
-    int flags;
-
-    flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1) {
-        perror("getting socket flags");
-        return -1;
-    }
-    flags = blocking ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
-
-    result = fcntl(fd, F_SETFL, flags);
-    if (result == -1) {
-        perror("setting socket flags");
-        return -1;
-    }
-
     return 0;
 }
 

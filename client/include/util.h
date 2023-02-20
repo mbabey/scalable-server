@@ -30,16 +30,6 @@ int write_fully(int fd, void * data, size_t size);
 int read_fully(int fd, void * data, size_t size);
 
 /**
- * set_time
- * <>
- * sets dst to the current time in UTC microseconds.
- * </p>
- * @param dst where to assign the time.
- * @return 0 on success. -1 on failure and set errno.
- */
-int set_time(unsigned long * dst);
-
-/**
  * close_fd
  * <>
  * closes a file descriptor.
@@ -71,17 +61,6 @@ int init_connection(int sock_fd, struct sockaddr_in *addr);
  * @return 0 on success. On failure, -1 and set errno.
  */
 int open_file(FILE **dst, const char * file_name, const char * mode);
-
-/**
- * set_sock_blocking
- * <p>
- * sets the blocking mode of a socket.
- * </p>
- * @param fd file descriptor of the socket.
- * @param blocking whether the socket should block or not.
- * @return 0 on success. On failure, -1 and set errno.
- */
-int set_sock_blocking(int fd, bool blocking);
 
 /**
  * TCP_socket

@@ -47,7 +47,7 @@ int init_state(struct init_state_params * params, struct state * s, struct dc_er
         s->wait_period_sec = params->wait_period_sec;
         s->standalone = true;
     } else {
-        (void) fprintf(stdout, "Running in controller mode, server address and data overridden\n");
+        (void) fprintf(stdout, "Running in controller mode\n");
         s->standalone = false;
     }
 
@@ -63,7 +63,6 @@ int init_state(struct init_state_params * params, struct state * s, struct dc_er
         if (init_addr(&s->controller_addr, s->controller_ip, s->controller_port) == -1) return -1;
         if (TCP_socket(&s->controller_fd) == -1) return -1;
         if (init_connection(s->controller_fd, &s->controller_addr) == -1) return -1;
-        if (set_sock_blocking(s->controller_fd, false) == -1) return -1; // needed for poll
     }
     if (init_logger() == -1) return -1;
 
@@ -92,9 +91,7 @@ static int validate_params(struct init_state_params * params, struct state * s, 
         if (params->controller_ip != NULL) {
             (void) fprintf(stdout, "WARNING: Controller IP not used for standalone mode\n");
         }
-        if (params->controller_port != NULL) {
-            (void) fprintf(stdout, "WARNING: Controller port not used for standalone mode\n");
-        }
+        // controller port would go here, but has a default value if not passed
     } else {
         // errors
         if (params->controller_ip == NULL) {
@@ -110,12 +107,10 @@ static int validate_params(struct init_state_params * params, struct state * s, 
         if (params->server_ip != NULL) {
             (void) fprintf(stdout, "WARNING: Server IP overridden in controller mode\n");
         }
-        if (params->server_port != NULL) {
-            (void) fprintf(stdout, "WARNING: Server port overridden in controller mode\n");
-        }
         if (params->data_file_name != NULL) {
             (void) fprintf(stdout, "WARNING: Data file overridden in controller mode\n");
         }
+        // server port would go here, but has a default value if not passed
     }
 
     return 0;

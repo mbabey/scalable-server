@@ -132,8 +132,6 @@ static int start_listen(struct state * s, struct dc_error * err, struct dc_env *
 
     if (TCP_socket(&s->listen_fd) == -1) return -1;
 
-    if (set_sock_blocking(s->listen_fd, false) == -1) return -1;
-
     option = 1;
     setsockopt(s->listen_fd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
     if(bind(s->listen_fd, (struct sockaddr *)&s->listen_addr, sizeof(struct sockaddr_in)) == -1)
