@@ -16,8 +16,8 @@ struct state_object *setup_process_state(struct memory_manager *mm);
 /**
  * open_pipe_semaphores_domain_sockets
  * <p>
- * Open the domain socket and set up the semaphores for controlling access to the child-parent pipe and the log
- * file.
+ * Open the domain socket and set up the semaphores for controlling access to the child-parent pipe,
+ * the domain socket, and the log file.
  * </p>
  * @return 0 on success, -1 and set errno on failure
  */
@@ -26,9 +26,8 @@ int open_pipe_semaphores_domain_sockets(struct core_object *co, struct state_obj
 /**
  * fork_child_processes
  * <p>
- * Fork the main process into the specified number of child processes. Save the child pids. Set the parent
- * struct to NULL in the child and the child struct the NULL in the parent to identify whether a process
- * is a parent or a child,
+ * Fork the main process into the specified number of child processes. Save the child pids. Setup the parent in the
+ * parent process and the children in the child processes.
  * </p>
  * @param co the core object
  * @param so the state object
@@ -44,6 +43,7 @@ int fork_child_processes(struct core_object *co, struct state_object *so);
  * free allocated memory.
  * </p>
  * @param co the core object
+ * @param so the state object
  * @param parent the parent struct
  */
 void p_destroy_parent_state(struct core_object *co, struct state_object *so, struct parent_struct *parent);
@@ -55,6 +55,7 @@ void p_destroy_parent_state(struct core_object *co, struct state_object *so, str
  * UNIX socket connection, free allocated memory.
  * </p>
  * @param co the core object
+ * @param so the state object
  * @param child the child struct
  */
 void c_destroy_child_state(struct core_object *co, struct state_object *so, struct child_struct *child);

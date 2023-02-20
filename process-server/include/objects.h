@@ -9,7 +9,7 @@
 /**
  * The number of worker processes to be spawned to handle network requests.
  */
-#define NUM_CHILD_PROCESSES 2 // Must be a power of 2 for magic indexing purposes.
+#define NUM_CHILD_PROCESSES 8
 
 /**
 * The maximum number of connections that can be accepted by the process server.
@@ -37,14 +37,9 @@
 #define WRITE 1
 
 /**
-* Pipe read semaphore name.
-*/
-#define PIPE_READ_SEM_NAME "/pr_206a08" // Random hex to prevent collision of this filename with others.
-
-/**
 * Pipe write semaphore name.
 */
-#define PIPE_WRITE_SEM_NAME "/pw_206a08"
+#define PIPE_WRITE_SEM_NAME "/p_206a08" // Random hex to prevent collision of this filename with others.
 
 /**
 * Domain socket read semaphore name.
@@ -71,6 +66,9 @@
  */
 #define FOR_EACH_SOCKET_POLLFD_p_IN_POLLFDS for (size_t p = 2; p < POLLFDS_SIZE; ++p)
 
+/**
+ * Contains information about the program state.
+ */
 struct state_object
 {
     pid_t                child_pids[NUM_CHILD_PROCESSES];
@@ -79,22 +77,28 @@ struct state_object
     sem_t                *c_to_f_pipe_sem_write;
     sem_t                *domain_sems[2];
     sem_t                *log_sem;
-    struct child_struct  *child;
     struct parent_struct *parent;
+    struct child_struct  *child;
 };
 
-struct child_struct
-{
-    int                client_fd_parent;
-    int                client_fd_local;
-    struct sockaddr_in client_addr;
-};
-
+/**
+ * Contains information about the parent state.
+ */
 struct parent_struct
 {
     struct pollfd      pollfds[POLLFDS_SIZE]; // 0th position is the listen socket fd, 1st position is pipe.
     struct sockaddr_in client_addrs[MAX_CONNECTIONS];
     size_t             num_connections;
+};
+
+/**
+ * Contains information about the child state.
+ */
+struct child_struct
+{
+    int                client_fd_parent;
+    int                client_fd_local;
+    struct sockaddr_in client_addr;
 };
 
 #endif //SCALABLE_SERVER_PROCESS_OBJECTS_H

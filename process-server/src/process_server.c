@@ -31,6 +31,8 @@ volatile int GOGO_PROCESS = 1;
  * handle that message.
  * </p>
  * @param co the core object
+ * @param so the state object
+ * @param parent the parent struct
  * @return 0 on success, -1 and set errno on failure
  */
 static int p_run_poll_loop(struct core_object *co, struct state_object *so, struct parent_struct *parent);
@@ -38,6 +40,7 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so, stru
 /**
  * setup_signal_handler
  * @param sa sigaction struct to fill
+ * @param signal the signal for which to listen
  * @return 0 on success, -1 and set errno on failure
  */
 static int setup_signal_handler(struct sigaction *sa, int signal);
@@ -56,8 +59,10 @@ static void end_gogo_handler(int signal);
  * <p>
  * Wait for the read semaphore to be signaled on the child-to-parent pipe. Invert the fd that is passed in the pipe.
  * </p>
- * @param arg the state object
- * @return NULL
+ * @param co the core object
+ * @param so the state object
+ * @param pollfds the array of pollfds
+ * @return 0 on success, -1 and set errno on failure.
  */
 static int p_read_pipe_reenable_fd(struct core_object *co, struct state_object *so, struct pollfd *pollfds);
 
@@ -78,7 +83,7 @@ static int p_accept_new_connection(struct core_object *co, struct parent_struct 
 /**
  * p_get_pollfd_index
  * <p>
- * Find an index in the file descriptor array where file descriptor == 0.
+ * Find an index of a socket in the file descriptor array where file descriptor == 0.
  * </p>
  * @param pollfds the file descriptor array
  * @return the first index where file descriptor == 0
@@ -88,7 +93,7 @@ static size_t p_get_pollfd_index(const struct pollfd *pollfds);
 /**
  * p_handle_socket_action
  * <p>
- * Read from all file descriptors in pollfds for which POLLIN is set.
+ * Send all file descriptors in pollfds for which POLLIN is set on the domain socket.
  * Remove all file descriptors in pollfds for which POLLHUP is set.
  * </p>
  * @param co the core object
@@ -105,9 +110,7 @@ static int p_handle_socket_action(struct core_object *co, struct state_object *s
  * </p>
  * @param co the core object
  * @param so the state object
- * @param parent the parent struct
  * @param active_pollfd the active socket
- * @param conn_index the index of the pollfd in the fd array.
  * @return 0 on success, -1 and set errno on failure
  */
 static int p_send_to_child(struct core_object *co, struct state_object *so, struct pollfd *active_pollfd);
@@ -125,7 +128,6 @@ static int p_send_to_child(struct core_object *co, struct state_object *so, stru
  */
 static void p_remove_connection(struct core_object *co, struct parent_struct *parent,
                                 struct pollfd *pollfd, size_t conn_index, struct pollfd *listen_pollfd);
-
 
 /**
  * c_run_child_process
@@ -145,6 +147,8 @@ static int c_run_child_process(struct core_object *co, struct state_object *so);
  * through the pipe when reading is done.
  * </p>
  * @param co the core_object
+ * @param so the state object
+ * @param child the child struct
  * @return 0 on success, -1 and set errno on failure
  */
 static int c_receive_and_handle_messages(struct core_object *co, struct state_object *so, struct child_struct *child);
@@ -166,15 +170,16 @@ static int c_get_file_description_from_domain_socket(struct core_object *co, str
 /**
  * c_recv_log_notify_parent_respond
  * <p>
- * Receive a message on the socket in the child struct. Log information about the read.
+ * Receive a message on the socket in the child struct. Log information about the read. Notify the parent when the
+ * read is finished through the child-to-parent pipe.
  * </p>
  * @param co the core object
  * @param so the state object
  * @param child the child struct
  * @return 0  on success, -1 and set errno on failure.
  */
-static int
-c_recv_log_notify_parent_respond(struct core_object *co, struct state_object *so, struct child_struct *child);
+static int c_recv_log_notify_parent_respond(struct core_object *co, struct state_object *so,
+                                            struct child_struct *child);
 
 /**
  * c_get_message_length
@@ -187,8 +192,8 @@ c_recv_log_notify_parent_respond(struct core_object *co, struct state_object *so
  * @param bytes_to_read integer holding number of bytes to read
  * @return 0 on success, -1 and set errno on failure
  */
-static int
-c_get_message_length(struct core_object *co, const struct child_struct *child, char **buffer, uint32_t *bytes_to_read);
+static int c_get_message_length(struct core_object *co, const struct child_struct *child,
+                                char **buffer, uint32_t *bytes_to_read);
 
 /**
  * c_log
@@ -203,14 +208,13 @@ c_get_message_length(struct core_object *co, const struct child_struct *child, c
  * @param end_time the end time of the read
  * @param elapsed_time_granular the elapsed time in seconds
  */
-static int
-c_log(struct core_object *co, struct state_object *so, struct child_struct *child, ssize_t bytes, time_t start_time,
-      time_t end_time, double elapsed_time_granular);
+static int c_log(struct core_object *co, struct state_object *so, struct child_struct *child,
+                 ssize_t bytes, time_t start_time, time_t end_time, double elapsed_time_granular);
 
 /**
  * c_inform_parent_recv_finished
  * <p>
- * Send the original fd number to the parent over the child-parent pipe. Close the socket on the child.
+ * Send the original fd number to the parent over the child-to-parent pipe.
  * </p>
  * @param co the core object
  * @param so the state object
@@ -690,8 +694,8 @@ static int c_recv_log_notify_parent_respond(struct core_object *co, struct state
     return 0;
 }
 
-static int
-c_get_message_length(struct core_object *co, const struct child_struct *child, char **buffer, uint32_t *bytes_to_read)
+static int c_get_message_length(struct core_object *co, const struct child_struct *child,
+                                char **buffer, uint32_t *bytes_to_read)
 {
     DC_TRACE(co->env);
     size_t  buffer_size;

@@ -12,10 +12,11 @@
 /**
  * open_semaphores
  * <p>
- * Open the read, write, and log semaphores. If an error occurs opening any one of them, close them all.
+ * Open the pipe read, domain read and write, and log semaphores.
+ * If an error occurs opening any one of them, close and unlink them all.
  * </p>
- * @param pipe_read_sem read/write pipe semaphores
- * @param log_sem log file semaphore
+ * @param co the core object
+ * @param so the state object
  * @return 0 on success, set errno and -1 on failure
  */
 static int open_semaphores(struct core_object *co, struct state_object *so);
