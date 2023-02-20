@@ -54,7 +54,8 @@ int main(int argc, char **argv)
                 
                 pid = getpid();
                 // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
-                (void) fprintf(stderr, "Fatal: error during server %d runtime: %s\n", pid, strerror(errno));
+                (void) fprintf(stderr, "Fatal: error during server %d runtime: %d: %s\n",
+                               pid, errno, strerror(errno));
                 next_state = close_server(&co);
                 break;
             }

@@ -143,6 +143,7 @@ void p_destroy_parent_state(struct core_object *co, struct state_object *so, str
     {
         printf("Waiting for child %d\n", so->child_pids[c]);
         waitpid(so->child_pids[c], &status, 0);
+        printf("Waited for child %d\n", so->child_pids[c]);
     }
     
     close_fd_report_undefined_error(so->c_to_p_pipe_fds[READ], "state of pipe read is undefined.");

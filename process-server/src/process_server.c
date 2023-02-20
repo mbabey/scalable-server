@@ -178,7 +178,7 @@ static int c_get_file_description_from_domain_socket(struct core_object *co, str
                                                      struct child_struct *child);
 
 /**
- * c_recv_and_log
+ * c_recv_log_notify_parent_respond
  * <p>
  * Receive a message on the socket in the child struct. Log information about the read.
  * </p>
@@ -187,7 +187,7 @@ static int c_get_file_description_from_domain_socket(struct core_object *co, str
  * @param child the child struct
  * @return 0  on success, -1 and set errno on failure.
  */
-static int c_recv_and_log(struct core_object *co, struct state_object *so, struct child_struct *child);
+static int c_recv_log_notify_parent_respond(struct core_object *co, struct state_object *so, struct child_struct *child);
 
 /**
  * c_log
@@ -342,7 +342,11 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so, stru
         poll_status = poll(pollfds, nfds, -1);
         if (poll_status == -1)
         {
-            return (errno == EINTR) ? 0 : -1;
+            if (errno == EINTR)
+            {
+                break;
+            }
+            return -1;
         }
         
         // If action on the listen socket.
@@ -361,7 +365,7 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so, stru
         }
     }
     
-    sem_post(so->c_to_f_pipe_sems[READ]); // TODO: is this necessary to kick thread out of loop?
+    sem_post(so->c_to_f_pipe_sems[READ]); // Kick the thread out.
     pthread_join(fd_inverter_thread, NULL);
     
     return 0;
@@ -620,7 +624,7 @@ static int c_receive_and_handle_messages(struct core_object *co, struct state_ob
         {
             return -1;
         }
-        if (c_recv_and_log(co, so, child) == -1)
+        if (errno != EINTR && c_recv_log_notify_parent_respond(co, so, child) == -1)
         {
             return -1;
         }
@@ -674,7 +678,7 @@ static int c_get_file_description_from_domain_socket(struct core_object *co, str
     return 0;
 }
 
-static int c_recv_and_log(struct core_object *co, struct state_object *so, struct child_struct *child)
+static int c_recv_log_notify_parent_respond(struct core_object *co, struct state_object *so, struct child_struct *child)
 {
     DC_TRACE(co->env);
     ssize_t  bytes;
