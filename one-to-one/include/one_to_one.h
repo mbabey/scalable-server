@@ -47,9 +47,8 @@ int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_a
  * Close all connections and all open sockets.
  * </p>
  * @param so the state object
- * @return 0 on success, -1 and set errno on failure
  */
-int destroy_state(struct state_object *so);
+void destroy_state(struct state_object *so);
 
 /**
  * run_one_to_one

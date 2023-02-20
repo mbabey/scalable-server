@@ -286,12 +286,10 @@ static void log(struct core_object *co, struct state_object *so, ssize_t bytes,
 
 }
 
-int destroy_state(struct state_object *so)
+void destroy_state(struct state_object *so)
 {
     int status;
-    int big_bad_error;
-    
-    big_bad_error = 0;
+
     status = close(so->listen_fd);
     if (status == -1)
     {
@@ -304,7 +302,7 @@ int destroy_state(struct state_object *so)
             }
             default:
             {
-                big_bad_error = 1; // TODO: EIO or EINTR; not sure what to do here.
+                fprintf(stderr, "An error in destroy state. Trying to close listen_fd, errno: %d", errno);
             }
         }
     }
@@ -321,15 +319,8 @@ int destroy_state(struct state_object *so)
             }
             default:
             {
-                big_bad_error = 1; // TODO: EIO or EINTR; not sure what to do here.
+                fprintf(stderr, "An error in destroy state. Trying to close client_fd, errno: %d", errno);
             }
         }
     }
-    
-    if (big_bad_error)
-    {
-        return -1;
-    }
-    
-    return 0;
 }
