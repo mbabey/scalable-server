@@ -213,7 +213,7 @@ static int p_setup_parent(struct core_object *co, struct state_object *so)
     }
     
     so->parent->pollfds[1].fd = so->c_to_p_pipe_fds[READ];
-    so->parent->pollfds[1].fd = POLLIN;
+    so->parent->pollfds[1].events = POLLIN;
     
     return 0;
 }

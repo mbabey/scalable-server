@@ -84,7 +84,7 @@ static int p_accept_new_connection(struct core_object *co, struct parent_struct 
  * @param pollfds the file descriptor array
  * @return the first index where file descriptor == 0
  */
-static int p_get_pollfd_index(const struct pollfd *pollfds);
+static size_t p_get_pollfd_index(const struct pollfd *pollfds);
 
 /**
  * p_handle_socket_action
@@ -260,7 +260,6 @@ int run_process_server(struct core_object *co, struct state_object *so)
     // In parent, child will be NULL. In child, parent will be NULL. This behaviour can be used to identify if child or parent.
     if (so->parent)
     {
-        
         if (p_run_poll_loop(co, so, so->parent) == -1)
         {
             return -1;
@@ -298,31 +297,25 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so, stru
     
     while (GOGO_PROCESS)
     {
-        sleep(1);
         poll_status = poll(pollfds, nfds, -1);
         if (poll_status == -1)
         {
-            if (errno == EINTR)
-            {
-                break;
-            }
-            return -1;
+            return (errno == EINTR) ? 0 : -1;
         }
         
-        // If action on the listen socket.
-        if ((*pollfds).revents == POLLIN)
+        if ((*pollfds).revents == POLLIN) // Action on the listen socket.
         {
             if (p_accept_new_connection(co, so->parent, pollfds) == -1)
             {
                 return -1;
             }
-        } else if ((*(pollfds + 1)).revents == POLLIN)
+        } else if ((*(pollfds + 1)).revents == POLLIN) // Action on child-to-parent pipe.
         {
             if (p_read_pipe_reenable_fd(co, so, pollfds) == -1)
             {
                 return -1;
             }
-        } else
+        } else // Action on a client socket.
         {
             if (p_handle_socket_action(co, so, pollfds) == -1)
             {
@@ -421,18 +414,19 @@ static int p_accept_new_connection(struct core_object *co, struct parent_struct 
     return 0;
 }
 
-static int p_get_pollfd_index(const struct pollfd *pollfds)
+static size_t p_get_pollfd_index(const struct pollfd *pollfds)
 {
-    int conn_index = 2;
+    size_t conn_index = 2;
     
-    for (int i = 2; i < POLLFDS_SIZE; ++i)
+    FOR_EACH_SOCKET_POLLFD_p_IN_POLLFDS
     {
-        if (pollfds[i].fd == 0)
+        if (pollfds[p].fd == 0)
         {
-            conn_index = i;
+            conn_index = p;
             break;
         }
     }
+    
     return conn_index;
 }
 
@@ -453,13 +447,12 @@ static int p_handle_socket_action(struct core_object *co, struct state_object *s
             pollfd->fd *= -1; // Disable the pollfd until it is signaled by the child to be re-enabled.
             
             // NOLINTNEXTLINE(hicpp-signed-bitwise): never negative
-        } else if ((pollfd->revents & POLLHUP) || (pollfd->revents & POLLERR))
-            // Client has closed other end of socket.
+        } else if ((pollfd->revents & POLLHUP) || (pollfd->revents & POLLERR)) // Client has closed other end of socket.
             // On MacOS, POLLHUP will be set; on Linux, POLLERR will be set.
         {
-            (p_remove_connection(co, so->parent, pollfd, p - 1, pollfds));
+            (p_remove_connection(co, so->parent, pollfd, p - 2, pollfds));
         }
-        pollfd->revents = 0;
+        pollfd->revents = 0; // Reset revents to be sure.
     }
     
     return 0;
