@@ -12,9 +12,9 @@
 #include <string.h>
 #include <sys/socket.h> // back compatability
 #include <sys/types.h>  // back compatability
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
-#include <sys/wait.h>
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): must be non-const
 /**
@@ -643,15 +643,11 @@ static int c_recv_log_notify_parent_respond(struct core_object *co, struct state
     clock_t  start_time_granular;
     clock_t  end_time_granular;
     double   elapsed_time_granular;
-
-//    if (c_get_message_length(co, child, &buffer, &bytes_to_read) == -1)
-//    {
-//        return -1;
-//    }
     
-    bytes_to_read = 1;
-    size_t buffer_size = (bytes_to_read + 1 * sizeof(char));
-    buffer = (char *) Mmm_malloc(buffer_size, co->mm);
+    if (c_get_message_length(co, child, &buffer, &bytes_to_read) == -1)
+    {
+        return -1;
+    }
     
     bytes               = 1;
     bytes_read          = 0;
@@ -721,9 +717,8 @@ static int c_get_message_length(struct core_object *co, const struct child_struc
     return 0;
 }
 
-static int
-c_log(struct core_object *co, struct state_object *so, struct child_struct *child, ssize_t bytes, time_t start_time,
-      time_t end_time, double elapsed_time_granular)
+static int c_log(struct core_object *co, struct state_object *so, struct child_struct *child,
+                 ssize_t bytes, time_t start_time, time_t end_time, double elapsed_time_granular)
 {
     pid_t     pid;
     int       fd_in_child;

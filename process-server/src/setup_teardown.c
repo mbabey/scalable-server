@@ -76,6 +76,7 @@ int open_pipe_semaphores_domain_sockets(struct core_object *co, struct state_obj
 {
     DC_TRACE(co->env);
     
+    // NOLINTNEXTLINE(android-cloexec-pipe): Intentional pipe leakage into child processes
     if (pipe(so->c_to_p_pipe_fds) == -1) // Open pipe.
     {
         return -1;
