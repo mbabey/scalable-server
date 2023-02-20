@@ -71,7 +71,6 @@ struct state_object
     sem_t                *log_sem;
     struct child_struct  *child;
     struct parent_struct *parent;
-    struct sockaddr_in   listen_addr;
 };
 
 struct child_struct
