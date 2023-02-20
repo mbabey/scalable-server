@@ -64,7 +64,7 @@
 /**
  * For each loop macro for looping over child processes.
  */
-#define FOR_EACH_CHILD_c_IN_PROCESSES for (size_t c = 0; c < NUM_CHILD_PROCESSES; ++c)
+#define FOR_EACH_CHILD_c_IN_CHILD_PIDS for (size_t c = 0; c < NUM_CHILD_PROCESSES; ++c)
 
 /**
  * For each loop macro for looping over socket pollfds.

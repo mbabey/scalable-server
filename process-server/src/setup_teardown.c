@@ -20,6 +20,44 @@
  */
 static int open_semaphores(struct core_object *co, struct state_object *so);
 
+/**
+ * p_setup_parent
+ * <p>
+ * Set up the parent struct by allocating memory, closing unnecessary files, opening the socket,
+ * and filling the first two indices of the pollfds array with the listen socket and the
+ * child-to-parent pipe read end.
+ * </p>
+ * @param co the core object
+ * @param so the state object
+ * @return 0 on success, -1 on and set errno failure.
+ */
+static int p_setup_parent(struct core_object *co, struct state_object *so);
+
+/**
+ * p_open_process_server_for_listen
+ * <p>
+ * Create a socket, bind, and begin listening for connections. Fill necessary fields in the
+ * core object.
+ * </p>
+ * @param co the core object
+ * @param parent the parent object
+ * @param listen_addr the address on which to listen
+ * @return 0 on success, -1 and set errno on failure
+ */
+static int p_open_process_server_for_listen(struct core_object *co, struct parent_struct *parent,
+                                            struct sockaddr_in *listen_addr);
+
+/**
+ * c_setup_child
+ * <p>
+ * Set up the child struct by allocating memory and closing unnecessary files.
+ * </p>
+ * @param co the core object
+ * @param so the state object
+ * @return 0 on success, -1 and set errno of failure.
+ */
+static int c_setup_child(struct core_object *co, struct state_object *so);
+
 struct state_object *setup_process_state(struct memory_manager *mm)
 {
     struct state_object *so;
@@ -101,8 +139,87 @@ static int open_semaphores(struct core_object *co, struct state_object *so)
     return 0;
 }
 
-int
-p_open_process_server_for_listen(struct core_object *co, struct parent_struct *parent, struct sockaddr_in *listen_addr)
+int fork_child_processes(struct core_object *co, struct state_object *so)
+{
+    pid_t pid;
+    
+    memset(so->child_pids, 0, sizeof(so->child_pids));
+    FOR_EACH_CHILD_c_IN_CHILD_PIDS
+    {
+        pid = fork();
+        if (pid == -1)
+        {
+            return -1; // will go to ERROR state.
+        }
+        so->child_pids[c] = pid;
+        if (pid == 0)
+        {
+            if (c_setup_child(co, so) == -1)
+            {
+                return -1;
+            }
+            
+            break; // Do not fork bomb.
+        }
+    }
+    if (pid > 0)
+    {
+        if (p_setup_parent(co, so) == -1)
+        {
+            return -1;
+        }
+    }
+    
+    return 0;
+}
+
+static int c_setup_child(struct core_object *co, struct state_object *so)
+{
+    so->parent = NULL; // Here for clarity; will already be null.
+    so->child  = (struct child_struct *) Mmm_calloc(1, sizeof(struct child_struct), co->mm);
+    if (!so->child)
+    {
+        return -1; // Will go to ERROR state in child process.
+    }
+    
+    close_fd_report_undefined_error(so->c_to_p_pipe_fds[READ], "state of parent pipe write is undefined.");
+    close_fd_report_undefined_error(so->domain_fds[WRITE], "state of parent domain socket is undefined.");
+    
+    so->c_to_p_pipe_fds[READ] = 0;
+    so->domain_fds[WRITE]     = 0;
+    
+    return 0;
+}
+
+static int p_setup_parent(struct core_object *co, struct state_object *so)
+{
+    so->parent = (struct parent_struct *) Mmm_calloc(1, sizeof(struct parent_struct), co->mm);
+    if (!so->parent)
+    {
+        return -1;
+    }
+    so->child = NULL; // Here for clarity; will already be null.
+    
+    close_fd_report_undefined_error(so->c_to_p_pipe_fds[WRITE], "state of parent pipe write is undefined.");
+    close_fd_report_undefined_error(so->domain_fds[READ], "state of parent domain socket is undefined.");
+    
+    so->c_to_p_pipe_fds[WRITE] = 0;
+    so->domain_fds[READ]       = 0;
+    
+    
+    if (p_open_process_server_for_listen(co, so->parent, &co->listen_addr) == -1)
+    {
+        return -1;
+    }
+    
+    so->parent->pollfds[1].fd = so->c_to_p_pipe_fds[READ];
+    so->parent->pollfds[1].fd = POLLIN;
+    
+    return 0;
+}
+
+static int p_open_process_server_for_listen(struct core_object *co, struct parent_struct *parent,
+                                            struct sockaddr_in *listen_addr)
 {
     DC_TRACE(co->env);
     int fd;
@@ -129,7 +246,7 @@ p_open_process_server_for_listen(struct core_object *co, struct parent_struct *p
     (void) fprintf(stdout, "Server running on connected from %s:%d\n", inet_ntoa(listen_addr->sin_addr),
                    ntohs(listen_addr->sin_port));
     
-    parent->pollfds[0].fd = fd;
+    parent->pollfds[0].fd     = fd;
     parent->pollfds[0].events = POLLIN;
     
     return 0;
@@ -140,12 +257,12 @@ void p_destroy_parent_state(struct core_object *co, struct state_object *so, str
     DC_TRACE(co->env);
     int status;
     
-    FOR_EACH_CHILD_c_IN_PROCESSES // Send signals to child processes real quick.
+    FOR_EACH_CHILD_c_IN_CHILD_PIDS // Send signals to child processes real quick.
     {
         printf("Killing child %d\n", so->child_pids[c]);
         kill(so->child_pids[c], SIGINT);
     }
-    FOR_EACH_CHILD_c_IN_PROCESSES // Wait for child processes to wrap up.
+    FOR_EACH_CHILD_c_IN_CHILD_PIDS // Wait for child processes to wrap up.
     {
         printf("Waiting for child %d\n", so->child_pids[c]);
         waitpid(so->child_pids[c], &status, 0);

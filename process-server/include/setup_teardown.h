@@ -24,18 +24,17 @@ struct state_object *setup_process_state(struct memory_manager *mm);
 int open_pipe_semaphores_domain_sockets(struct core_object *co, struct state_object *so);
 
 /**
- * p_open_process_server_for_listen
+ * fork_child_processes
  * <p>
- * Create a socket, bind, and begin listening for connections. Fill necessary fields in the
- * core object.
+ * Fork the main process into the specified number of child processes. Save the child pids. Set the parent
+ * struct to NULL in the child and the child struct the NULL in the parent to identify whether a process
+ * is a parent or a child,
  * </p>
  * @param co the core object
- * @param parent the parent object
- * @param listen_addr the address on which to listen
- * @return 0 on success, -1 and set errno on failure
+ * @param so the state object
+ * @return 0 on success, -1 and set errno on failure.
  */
-int
-p_open_process_server_for_listen(struct core_object *co, struct parent_struct *parent, struct sockaddr_in *listen_addr);
+int fork_child_processes(struct core_object *co, struct state_object *so);
 
 /**
  * p_destroy_parent_state

@@ -25,19 +25,6 @@ volatile int GOGO_PROCESS = 1;
 // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 /**
- * fork_child_processes
- * <p>
- * Fork the main process into the specified number of child processes. Save the child pids. Set the parent
- * struct to NULL in the child and the child struct the NULL in the parent to identify whether a process
- * is a parent or a child,
- * </p>
- * @param co the core object
- * @param so the state object
- * @return 0 on success, -1 and set errno on failure.
- */
-static int fork_child_processes(struct core_object *co, struct state_object *so);
-
-/**
  * p_run_poll_loop
  * <p>
  * Run the process server. Wait for activity on one of the processed sockets; if activity
@@ -234,9 +221,6 @@ c_log(struct core_object *co, struct state_object *so, struct child_struct *chil
 static int c_inform_parent_recv_finished(struct core_object *co, struct state_object *so, struct child_struct *child);
 
 
-static int c_setup_child(struct core_object *co, struct state_object *so);
-
-static int p_setup_parent(struct core_object *co, struct state_object *so);
 
 int setup_process_server(struct core_object *co, struct state_object *so)
 {
@@ -265,85 +249,6 @@ int setup_process_server(struct core_object *co, struct state_object *so)
     {
         return -1;
     }
-    
-    return 0;
-}
-
-static int fork_child_processes(struct core_object *co, struct state_object *so)
-{
-    pid_t pid;
-    
-    memset(so->child_pids, 0, sizeof(so->child_pids));
-    FOR_EACH_CHILD_c_IN_PROCESSES
-    {
-        pid = fork();
-        if (pid == -1)
-        {
-            return -1; // will go to ERROR state.
-        }
-        so->child_pids[c] = pid;
-        if (pid == 0)
-        {
-            if (c_setup_child(co, so) == -1)
-            {
-                return -1;
-            }
-            
-            break; // Do not fork bomb.
-        }
-    }
-    if (pid > 0)
-    {
-        if (p_setup_parent(co, so) == -1)
-        {
-            return -1;
-        }
-    }
-    
-    return 0;
-}
-
-static int c_setup_child(struct core_object *co, struct state_object *so)
-{
-    so->parent = NULL; // Here for clarity; will already be null.
-    so->child  = (struct child_struct *) Mmm_calloc(1, sizeof(struct child_struct), co->mm);
-    if (!so->child)
-    {
-        return -1; // Will go to ERROR state in child process.
-    }
-    
-    close_fd_report_undefined_error(so->c_to_p_pipe_fds[READ], "state of parent pipe write is undefined.");
-    close_fd_report_undefined_error(so->domain_fds[WRITE], "state of parent domain socket is undefined.");
-    
-    so->c_to_p_pipe_fds[READ] = 0;
-    so->domain_fds[WRITE]     = 0;
-    
-    return 0;
-}
-
-static int p_setup_parent(struct core_object *co, struct state_object *so)
-{
-    so->parent = (struct parent_struct *) Mmm_calloc(1, sizeof(struct parent_struct), co->mm);
-    if (!so->parent)
-    {
-        return -1;
-    }
-    so->child = NULL; // Here for clarity; will already be null.
-    
-    close_fd_report_undefined_error(so->c_to_p_pipe_fds[WRITE], "state of parent pipe write is undefined.");
-    close_fd_report_undefined_error(so->domain_fds[READ], "state of parent domain socket is undefined.");
-    
-    so->c_to_p_pipe_fds[WRITE] = 0;
-    so->domain_fds[READ]       = 0;
-    
-    
-    if (p_open_process_server_for_listen(co, so->parent, &co->listen_addr) == -1)
-    {
-        return -1;
-    }
-    
-    so->parent->pollfds[1].fd = so->c_to_p_pipe_fds[READ];
-    so->parent->pollfds[1].fd = POLLIN;
     
     return 0;
 }
