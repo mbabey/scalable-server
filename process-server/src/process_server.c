@@ -187,7 +187,22 @@ static int c_get_file_description_from_domain_socket(struct core_object *co, str
  * @param child the child struct
  * @return 0  on success, -1 and set errno on failure.
  */
-static int c_recv_log_notify_parent_respond(struct core_object *co, struct state_object *so, struct child_struct *child);
+static int
+c_recv_log_notify_parent_respond(struct core_object *co, struct state_object *so, struct child_struct *child);
+
+/**
+ * c_get_message_length
+ * <p>
+ * Get the length of the message to receive. Allocate a buffer of that size to store the message.
+ * </p>
+ * @param co the core object
+ * @param child the child struct
+ * @param buffer the buffer to allocate
+ * @param bytes_to_read integer holding number of bytes to read
+ * @return 0 on success, -1 and set errno on failure
+ */
+static int
+c_get_message_length(struct core_object *co, const struct child_struct *child, char **buffer, uint32_t *bytes_to_read);
 
 /**
  * c_log
@@ -217,6 +232,7 @@ c_log(struct core_object *co, struct state_object *so, struct child_struct *chil
  * @return 0 on success, -1 and set errno on failure.
  */
 static int c_inform_parent_recv_finished(struct core_object *co, struct state_object *so, struct child_struct *child);
+
 
 int setup_process_server(struct core_object *co, struct state_object *so)
 {
@@ -628,7 +644,7 @@ static int c_receive_and_handle_messages(struct core_object *co, struct state_ob
         {
             return -1;
         }
-    
+        
         close_fd_report_undefined_error(child->client_fd_local, "state of child receive socket undefined.");
     }
     
@@ -683,7 +699,6 @@ static int c_recv_log_notify_parent_respond(struct core_object *co, struct state
     DC_TRACE(co->env);
     ssize_t  bytes;
     char     *buffer;
-    size_t   buffer_size;
     uint32_t bytes_to_read;
     uint32_t bytes_read;
     time_t   start_time;
@@ -692,23 +707,12 @@ static int c_recv_log_notify_parent_respond(struct core_object *co, struct state
     clock_t  end_time_granular;
     double   elapsed_time_granular;
     
-    // Read the number of bytes that will be sent in the message.
-    bytes = recv(child->client_fd_local, &bytes_to_read, sizeof(bytes_to_read), 0);
-    if (bytes == -1)
+    if (c_get_message_length(co, child, &buffer, &bytes_to_read) == -1)
     {
         return -1;
     }
     
-    bytes_to_read = ntohl(bytes_to_read);
-    
-    // Allocate the buffer based on bytes to read.
-    buffer_size = (bytes_to_read + 1 * sizeof(char));
-    buffer      = (char *) Mmm_malloc(buffer_size, co->mm);
-    if (!buffer)
-    {
-        return -1;
-    }
-    
+    bytes               = 1;
     bytes_read          = 0;
     start_time          = time(NULL);
     start_time_granular = clock();
@@ -743,6 +747,33 @@ static int c_recv_log_notify_parent_respond(struct core_object *co, struct state
     bytes      = send(child->client_fd_local, &bytes_read, sizeof(bytes_read),
                       0); // Send back the number of bytes read.
     if (bytes == -1)
+    {
+        return -1;
+    }
+    
+    return 0;
+}
+
+static int
+c_get_message_length(struct core_object *co, const struct child_struct *child, char **buffer, uint32_t *bytes_to_read)
+{
+    DC_TRACE(co->env);
+    size_t  buffer_size;
+    ssize_t bytes;
+    
+    // Read the number of bytes that will be sent in the message.
+    bytes = recv(child->client_fd_local, bytes_to_read, sizeof((*bytes_to_read)), 0);
+    if (bytes == -1)
+    {
+        return -1;
+    }
+    
+    (*bytes_to_read) = ntohl((*bytes_to_read));
+    
+    // Allocate the buffer based on bytes to read.
+    buffer_size = ((*bytes_to_read) + 1 * sizeof(char));
+    (*buffer) = (char *) Mmm_malloc(buffer_size, co->mm);
+    if (!(*buffer))
     {
         return -1;
     }
