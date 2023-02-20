@@ -12,6 +12,11 @@
 #define NUM_CHILD_PROCESSES 8
 
 /**
+* The number of connections that can be queued on the listening socket.
+*/
+#define CONNECTION_QUEUE 100
+
+/**
 * The maximum number of connections that can be accepted by the process server.
 */
 #define MAX_CONNECTIONS 5
@@ -20,11 +25,6 @@
  * The size of the pollfds array. +2 for listen socket and child-to-parent pipe.
  */
 #define POLLFDS_SIZE 2 + MAX_CONNECTIONS
-
-/**
-* The number of connections that can be queued on the listening socket.
-*/
-#define CONNECTION_QUEUE 100
 
 /**
 * Read end of child_finished_pipe or read child_finished_semaphore.
@@ -74,8 +74,8 @@ struct state_object
     pid_t                child_pids[NUM_CHILD_PROCESSES];
     int                  domain_fds[2];
     int                  c_to_p_pipe_fds[2];
-    sem_t                *c_to_f_pipe_sem_write;
     sem_t                *domain_sems[2];
+    sem_t                *c_to_p_pipe_sem_write;
     sem_t                *log_sem;
     struct parent_struct *parent;
     struct child_struct  *child;

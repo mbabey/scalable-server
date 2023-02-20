@@ -358,7 +358,7 @@ static int p_read_pipe_reenable_fd(struct core_object *co, struct state_object *
     
     bytes_read = read(so->c_to_p_pipe_fds[READ], &fd, sizeof(int));
     
-    sem_post(so->c_to_f_pipe_sem_write);
+    sem_post(so->c_to_p_pipe_sem_write);
     
     if (bytes_read == -1)
     {
@@ -767,7 +767,7 @@ static int c_inform_parent_recv_finished(struct core_object *co, struct state_ob
     DC_TRACE(co->env);
     ssize_t bytes_written;
     
-    if (sem_wait(so->c_to_f_pipe_sem_write) == -1) // Wait for the pipe write semaphore.
+    if (sem_wait(so->c_to_p_pipe_sem_write) == -1) // Wait for the pipe write semaphore.
     {
         return (errno == EINTR) ? 0 : -1;
     }

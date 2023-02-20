@@ -127,7 +127,7 @@ static int open_semaphores(struct core_object *co, struct state_object *so)
         return -1;
     }
     
-    so->c_to_f_pipe_sem_write = pipe_write_sem;
+    so->c_to_p_pipe_sem_write = pipe_write_sem;
     so->domain_sems[READ]  = domain_read_sem;
     so->domain_sems[WRITE] = domain_write_sem;
     so->log_sem = log_sem;
@@ -275,7 +275,7 @@ void p_destroy_parent_state(struct core_object *co, struct state_object *so, str
     
     co->mm->mm_free(co->mm, parent);
     
-    sem_close(so->c_to_f_pipe_sem_write);
+    sem_close(so->c_to_p_pipe_sem_write);
     sem_close(so->domain_sems[READ]);
     sem_close(so->domain_sems[WRITE]);
     sem_close(so->log_sem);
