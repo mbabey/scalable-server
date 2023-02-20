@@ -1,5 +1,6 @@
 #include "../include/setup_teardown.h"
 
+#include <arpa/inet.h>
 #include <dc_env/env.h>
 #include <mem_manager/manager.h>
 #include <signal.h>
@@ -124,7 +125,12 @@ p_open_process_server_for_listen(struct core_object *co, struct parent_struct *p
         return -1;
     }
     
+    // NOLINTNEXTLINE(concurrency-mt-unsafe): No threads here
+    (void) fprintf(stdout, "Server running on connected from %s:%d\n", inet_ntoa(listen_addr->sin_addr),
+                   ntohs(listen_addr->sin_port));
+    
     parent->pollfds[0].fd = fd;
+    parent->pollfds[0].events = POLLIN;
     
     return 0;
 }

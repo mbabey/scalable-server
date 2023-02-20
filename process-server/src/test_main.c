@@ -22,7 +22,9 @@ int main(int argc, char **argv)
     err = dc_error_create(true);
     env = dc_env_create(err, false, tracer);
     
-    next_state = setup_core_object(&co, env, err, DEFAULT_PORT_BUT_A_NUMBER, argv[1]);
+    char *end;
+    
+    next_state = setup_core_object(&co, env, err, strtol(argv[2], &end, 10), argv[1]);
     if (next_state == -1)
     {
         return EXIT_FAILURE;

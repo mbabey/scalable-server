@@ -364,6 +364,7 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so, stru
     
     while (GOGO_PROCESS)
     {
+        sleep(1);
         poll_status = poll(pollfds, nfds, -1);
         if (poll_status == -1)
         {
@@ -437,6 +438,7 @@ static void *p_watch_pipe_reenable_fds(void *arg)
         }
         
         bytes_read = read(so->c_to_p_pipe_fds[READ], &fd, sizeof(int));
+        printf("Thread read fd %d\n", fd);
         
         sem_post(so->c_to_f_pipe_sems[WRITE]);
         
@@ -450,6 +452,7 @@ static void *p_watch_pipe_reenable_fds(void *arg)
         {
             if (pollfds[p].fd == fd * -1) // pollfd.fd here is negative.
             {
+                printf("Inverting fd %d\n", pollfds[p].fd);
                 pollfds[p].fd = pollfds[p].fd * -1; // Invert pollfd.fd so it will be read from in poll loop.
             }
         }
@@ -522,7 +525,7 @@ static int p_handle_socket_action(struct core_object *co, struct state_object *s
             {
                 return -1;
             }
-            pollfd->fd *= -1; // Disable the pollfd until it is signaled by the child to be re-enabled.
+//            pollfd->fd *= -1; // Disable the pollfd until it is signaled by the child to be re-enabled.
             
             // NOLINTNEXTLINE(hicpp-signed-bitwise): never negative
         } else if ((pollfd->revents & POLLHUP) || (pollfd->revents & POLLERR))
@@ -700,6 +703,8 @@ static int c_get_file_description_from_domain_socket(struct core_object *co, str
     cmsghdr = CMSG_FIRSTHDR(&msghdr);
     child->client_fd_local = *((int *) CMSG_DATA(cmsghdr)); // The file description.
     
+    printf("New fd in process %d: %d; original was %d\n", getpid(), child->client_fd_local, child->client_fd_parent);
+    
     return 0;
 }
 
@@ -721,7 +726,7 @@ static int c_recv_log_notify_parent_respond(struct core_object *co, struct state
 //        return -1;
 //    }
     
-    bytes_to_read = 64;
+    bytes_to_read = 3;
     size_t buffer_size = (bytes_to_read + 1 * sizeof(char));
     buffer = (char *) Mmm_malloc(buffer_size, co->mm);
 
@@ -732,6 +737,7 @@ static int c_recv_log_notify_parent_respond(struct core_object *co, struct state
     while (bytes_read < bytes_to_read && bytes != 0)
     {
         bytes = recv(child->client_fd_local, buffer + bytes_read, sizeof(buffer), 0); // Recv into buffer
+        printf("Bytes received by process %d: %lu\n", getpid(), bytes);
         if (bytes == -1)
         {
             co->mm->mm_free(co->mm, buffer);

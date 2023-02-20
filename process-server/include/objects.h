@@ -9,7 +9,7 @@
 /**
  * The number of worker processes to be spawned to handle network requests.
  */
-#define NUM_CHILD_PROCESSES 1 // Must be a power of 2 for magic indexing purposes.
+#define NUM_CHILD_PROCESSES 2 // Must be a power of 2 for magic indexing purposes.
 
 /**
  * For each loop macro for looping over child processes.
