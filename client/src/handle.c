@@ -26,13 +26,13 @@ void * handle(void *handle_args) {
     struct handle_args *h_args;
     struct logger log;
     int server_sock;
-    uint32_t f_size;
+    uint32_t data_size;
     uint32_t server_resp;
     clock_t  start_time_granular;
     clock_t  end_time_granular;
 
     h_args = handle_args;
-    f_size = h_args->data_size;
+    data_size = h_args->data_size; // done for uint32 cast (htonl)
     pthread_cleanup_push(hargs_cleanup_handler, (void*)h_args) // run hargs_cleanup_handler on thread exit
 
     while (true) {
@@ -43,21 +43,21 @@ void * handle(void *handle_args) {
             return NULL;
         }
 
-        if (init_connection(server_sock, h_args->server_addr) == -1) {
+        if (init_connection(server_sock, &h_args->server_addr) == -1) {
             close_fd(server_sock);
             sleep(1); // backoff time
         } else {
-            log.data_size = f_size;
+            log.data_size = data_size;
             log.start_time = time(NULL);
             start_time_granular = clock();
 
-            uint32_t net_f_size = htonl(f_size);
+            uint32_t net_f_size = htonl(data_size);
             if (write_fully(server_sock, &net_f_size, sizeof(net_f_size)) == -1) {
                 close_fd(server_sock);
                 return NULL;
             }
 
-            if (write_fully(server_sock, h_args->data, f_size) == -1) {
+            if (write_fully(server_sock, h_args->data, data_size) == -1) {
                 close_fd(server_sock);
                 return NULL;
             }
@@ -77,6 +77,7 @@ void * handle(void *handle_args) {
             end_time_granular = clock();
             log.elapsed_time_granular = (double) (end_time_granular - start_time_granular) / CLOCKS_PER_SEC;
             log.server_resp = server_resp;
+            log.thread_id = h_args->thread_id;
 
             if (do_log(&log) == -1) {
                 return NULL;
@@ -93,7 +94,6 @@ static void hargs_cleanup_handler(void *args) {
 
     h_args = args;
     free(h_args->data);
-    free(h_args->server_addr);
     free(h_args);
 }
 
