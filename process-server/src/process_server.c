@@ -39,6 +39,9 @@ static int p_run_poll_loop(struct core_object *co, struct state_object *so, stru
 
 /**
  * setup_signal_handler
+ * <p>
+ * Set up a handler for a signal.
+ * </p>
  * @param sa sigaction struct to fill
  * @param signal the signal for which to listen
  * @return 0 on success, -1 and set errno on failure
@@ -55,23 +58,10 @@ static int setup_signal_handler(struct sigaction *sa, int signal);
 static void end_gogo_handler(int signal);
 
 /**
- * p_read_pipe_reenable_fd
- * <p>
- * Wait for the read semaphore to be signaled on the child-to-parent pipe. Invert the fd that is passed in the pipe.
- * </p>
- * @param co the core object
- * @param so the state object
- * @param pollfds the array of pollfds
- * @return 0 on success, -1 and set errno on failure.
- */
-static int p_read_pipe_reenable_fd(struct core_object *co, struct state_object *so, struct pollfd *pollfds);
-
-/**
  * p_accept_new_connection
  * <p>
  * Accept a new connection to the server. Set the value of the fd
- * increment the num connections in the state object and. Log the connection
- * in the log file.
+ * increment the num connections in the state object.
  * </p>
  * @param co the core object
  * @param parent the state object
@@ -89,6 +79,18 @@ static int p_accept_new_connection(struct core_object *co, struct parent_struct 
  * @return the first index where file descriptor == 0
  */
 static size_t p_get_pollfd_index(const struct pollfd *pollfds);
+
+/**
+ * p_read_pipe_reenable_fd
+ * <p>
+ * Wait for the read semaphore to be signaled on the child-to-parent pipe. Invert the fd that is passed in the pipe.
+ * </p>
+ * @param co the core object
+ * @param so the state object
+ * @param pollfds the array of pollfds
+ * @return 0 on success, -1 and set errno on failure.
+ */
+static int p_read_pipe_reenable_fd(struct core_object *co, struct state_object *so, struct pollfd *pollfds);
 
 /**
  * p_handle_socket_action
@@ -123,7 +125,7 @@ static int p_send_to_child(struct core_object *co, struct state_object *so, stru
  * @param co the core object
  * @param parent the state object
  * @param pollfd the pollfd to close and clean
- * @param conn_index the index of the connection in the array of client_fds and client_addrs
+ * @param conn_index the index of the connection in the array of client_addrs
  * @param listen_pollfd the listen pollfd
  */
 static void p_remove_connection(struct core_object *co, struct parent_struct *parent,
@@ -207,6 +209,7 @@ static int c_get_message_length(struct core_object *co, const struct child_struc
  * @param start_time the start time of the read
  * @param end_time the end time of the read
  * @param elapsed_time_granular the elapsed time in seconds
+ * @param end_time_granular the end clock time of the read
  */
 static int
 c_log(struct core_object *co, struct state_object *so, struct child_struct *child, ssize_t bytes, time_t start_time,
@@ -351,32 +354,6 @@ static void end_gogo_handler(int signal)
 
 #pragma GCC diagnostic pop
 
-static int p_read_pipe_reenable_fd(struct core_object *co, struct state_object *so, struct pollfd *pollfds)
-{
-    DC_TRACE(co->env);
-    int     fd;
-    ssize_t bytes_read;
-    
-    bytes_read = read(so->c_to_p_pipe_fds[READ], &fd, sizeof(int));
-    
-    sem_post(so->c_to_p_pipe_sem_write);
-    
-    if (bytes_read == -1)
-    {
-        return -1;
-    }
-    
-    FOR_EACH_SOCKET_POLLFD_p_IN_POLLFDS
-    {
-        if (pollfds[p].fd == fd * -1) // pollfd.fd here is negative.
-        {
-            pollfds[p].fd = pollfds[p].fd * -1; // Invert pollfd.fd so it will be read from in poll loop.
-        }
-    }
-    
-    return 0;
-}
-
 static int p_accept_new_connection(struct core_object *co, struct parent_struct *parent, struct pollfd *pollfds)
 {
     DC_TRACE(co->env);
@@ -426,6 +403,32 @@ static size_t p_get_pollfd_index(const struct pollfd *pollfds)
     }
     
     return conn_index;
+}
+
+static int p_read_pipe_reenable_fd(struct core_object *co, struct state_object *so, struct pollfd *pollfds)
+{
+    DC_TRACE(co->env);
+    int     fd;
+    ssize_t bytes_read;
+    
+    bytes_read = read(so->c_to_p_pipe_fds[READ], &fd, sizeof(int));
+    
+    sem_post(so->c_to_p_pipe_sem_write);
+    
+    if (bytes_read == -1)
+    {
+        return -1;
+    }
+    
+    FOR_EACH_SOCKET_POLLFD_p_IN_POLLFDS
+    {
+        if (pollfds[p].fd == fd * -1) // pollfd.fd here is negative.
+        {
+            pollfds[p].fd = pollfds[p].fd * -1; // Invert pollfd.fd so it will be read from in poll loop.
+        }
+    }
+    
+    return 0;
 }
 
 static int p_handle_socket_action(struct core_object *co, struct state_object *so, struct pollfd *pollfds)

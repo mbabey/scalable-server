@@ -48,7 +48,7 @@ int initialize_server(struct core_object *co);
 int run_server(struct core_object *co);
 
 /**
- * destroy
+ * close_server
  * <p>
  * Destroy the state object. Free memory, terminate child processes, and close open files.
  * </p>

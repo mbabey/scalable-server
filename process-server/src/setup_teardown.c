@@ -203,7 +203,6 @@ static int p_setup_parent(struct core_object *co, struct state_object *so)
     so->c_to_p_pipe_fds[WRITE] = 0;
     so->domain_fds[READ]       = 0;
     
-    
     if (p_open_process_server_for_listen(co, so->parent, &co->listen_addr) == -1)
     {
         return -1;
@@ -266,7 +265,7 @@ void p_destroy_parent_state(struct core_object *co, struct state_object *so, str
     close_fd_report_undefined_error(so->c_to_p_pipe_fds[READ], "state of pipe read is undefined.");
     close_fd_report_undefined_error(so->domain_fds[WRITE], "state of parent domain socket is undefined.");
     
-    for (size_t sfd_num = 0; sfd_num < 1 + MAX_CONNECTIONS; ++sfd_num)
+    for (size_t sfd_num = 0; sfd_num < POLLFDS_SIZE; ++sfd_num)
     {
         close_fd_report_undefined_error((parent->pollfds + sfd_num)->fd, "state of connection socket is undefined.");
     }
