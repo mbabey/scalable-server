@@ -32,7 +32,7 @@ typedef int (*api) (struct core_object * co);
  * Fill fields in the core_object, open the listening socket, and set up the state.
  * </p>
  * @param co the core data object
- * @return the listen socket fd on success. Set errno and return -1 on failure.
+ * @return RUN_SERVER. Set errno and return ERROR on failure.
  */
 int initialize_server(struct core_object *co);
 
@@ -43,7 +43,7 @@ int initialize_server(struct core_object *co);
  * as necessary.
  * </p>
  * @param co the core data object
- * @return 0 on success. Set errno and return -1 on failure.
+ * @return CLOSE_SERVER on success. Set errno and return ERROR on failure.
  */
 int run_server(struct core_object *co);
 
@@ -53,7 +53,7 @@ int run_server(struct core_object *co);
  * Destroy the state object. Free memory, terminate child processes, and close open files.
  * </p>
  * @param co the core object
- * @return 0 on success. Set errno and return -1 on failure.
+ * @return EXIT.
  */
 int close_server(struct core_object *co);
 

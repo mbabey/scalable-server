@@ -213,9 +213,10 @@ static int run_core(struct core_object *co, const char *lib_name)
     int                  exit_status;
     int                  run;
     
-    lib        = get_api(&api, lib_name, co->env);
-    run        = (lib) ? 1 : 0;
-    next_state = INITIALIZE_SERVER;
+    lib         = get_api(&api, lib_name, co->env);
+    run         = (lib) ? 1 : 0; // Run if lib not null.
+    exit_status = (lib) ? EXIT_SUCCESS : EXIT_FAILURE; // Set initial exit code.
+    next_state  = INITIALIZE_SERVER;
     while (run)
     {
         switch (next_state)
@@ -239,14 +240,17 @@ static int run_core(struct core_object *co, const char *lib_name)
             {
                 // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
                 (void) fprintf(stderr, "Fatal: error during server runtime: %s\n", strerror(errno));
-                run = 0;
+                next_state  = api.close_server(co);
                 exit_status = EXIT_FAILURE;
                 break;
             }
             case EXIT:
             {
                 run = 0;
-                exit_status = EXIT_SUCCESS;
+                if (!exit_status) // If exit_status is not already EXIT_FAILURE
+                {
+                    exit_status = EXIT_SUCCESS;
+                }
                 break;
             }
             default: // Should not get here.

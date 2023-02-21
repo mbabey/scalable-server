@@ -4,6 +4,8 @@
 #include <arpa/inet.h>
 #include <dc_env/env.h>
 #include <errno.h>
+#include <mem_manager/manager.h>
+#include <netinet/in.h>
 #include <poll.h>
 #include <signal.h>
 #include <string.h>
@@ -11,7 +13,6 @@
 #include <sys/types.h>  // back compatability
 #include <time.h>
 #include <unistd.h>
-
 
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): must be non-const
 /**
@@ -33,7 +34,7 @@ volatile int GOGO_POLL = 1;
  */
 static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t nfds);
 
-/**w
+/**
  * setup_signal_handler
  * @param sa sigaction struct to fill
  * @return 0 on success, -1 and set errno on failure
@@ -41,13 +42,13 @@ static int execute_poll(struct core_object *co, struct pollfd *pollfds, nfds_t n
 static int setup_signal_handler(struct sigaction *sa, int signal);
 
 /**
- * sigint_handler
+ * end_gogo_handler
  * <p>
  * Handler for SIGINT. Set the running loop conditional to 0.
  * </p>
  * @param signal the signal received
  */
-static void sigint_handler(int signal);
+static void end_gogo_handler(int signal);
 
 /**
  * poll_accept
@@ -121,6 +122,7 @@ static void log(struct core_object *co, struct state_object *so, size_t fd_num, 
  * @param so the state object
  * @param pollfd the pollfd to close and clean
  * @param conn_index the index of the connection in the array of client_fds and client_addrs
+ * @param listen_pollfd the listen pollfd
  */
 static void
 poll_remove_connection(struct core_object *co, struct state_object *so, struct pollfd *pollfd, size_t conn_index,
@@ -254,7 +256,7 @@ static int setup_signal_handler(struct sigaction *sa, int signal)
 {
     sigemptyset(&sa->sa_mask);
     sa->sa_flags   = 0;
-    sa->sa_handler = sigint_handler;
+    sa->sa_handler = end_gogo_handler;
     if (sigaction(signal, sa, 0) == -1)
     {
         return -1;
@@ -265,7 +267,7 @@ static int setup_signal_handler(struct sigaction *sa, int signal)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 
-static void sigint_handler(int signal)
+static void end_gogo_handler(int signal)
 {
     GOGO_POLL = 0;
 }

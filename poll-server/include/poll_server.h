@@ -1,14 +1,6 @@
 #ifndef SCALABLE_SERVER_POLL_SERVER_H
 #define SCALABLE_SERVER_POLL_SERVER_H
 
-#include <mem_manager/manager.h>
-#include <netinet/in.h>
-
-/**
- * The number of connections that can be queued on the listening socket.
- */
-#define CONNECTION_QUEUE 100
-
 /**
  * setup_poll_state
  * <p>
