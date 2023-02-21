@@ -44,7 +44,7 @@ static int setup_signal_handler(struct sigaction *sa, int signal);
 /**
  * end_gogo_handler
  * <p>
- * Handler for SIGINT. Set the running loop conditional to 0.
+ * Handler for signal. Set the running loop conditional to 0.
  * </p>
  * @param signal the signal received
  */
@@ -469,7 +469,7 @@ poll_remove_connection(struct core_object *co, struct state_object *so, struct p
     so->client_fd[conn_index] = 0;
     --so->num_connections;
     
-    if (so->num_connections < MAX_CONNECTIONS)
+    if (listen_pollfd->events != POLLIN && so->num_connections < MAX_CONNECTIONS)
     {
         listen_pollfd->events = POLLIN; // Turn on POLLIN on the listening socket when less than max connections.
     }

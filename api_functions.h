@@ -26,7 +26,7 @@ enum Server_States {
 typedef int (*api) (struct core_object * co);
 
 /**
- * initialize
+ * initialize_server
  * <p>
  * Initialize the state object and set up the server to listen for connections.
  * Fill fields in the core_object, open the listening socket, and set up the state.

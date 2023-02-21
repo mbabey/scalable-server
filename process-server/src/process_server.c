@@ -51,7 +51,7 @@ static int setup_signal_handler(struct sigaction *sa, int signal);
 /**
  * end_gogo_handler
  * <p>
- * Handler for SIGINT. Set the running loop conditional to 0.
+ * Handler for signal. Set the running loop conditional to 0.
  * </p>
  * @param signal the signal received
  */
