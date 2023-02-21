@@ -5,7 +5,14 @@
 #include <mem_manager/manager.h>
 #include <signal.h>
 #include <string.h>
+
+#ifdef __linux__
+#include <semaphore.h>
+#include <fcntl.h>
+#else
 #include <sys/semaphore.h>
+#endif
+
 #include <sys/wait.h>
 #include <unistd.h>
 
