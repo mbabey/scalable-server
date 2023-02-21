@@ -7,6 +7,12 @@
 
 #define MAX_CONNS 500
 
+/**
+ * init_state_params
+ * <p>
+ * Struct containing params for initializing the state.
+ * </p>
+ */
 struct init_state_params {
     const char *listen_port;
     const char *server_ip;
@@ -28,9 +34,9 @@ struct state {
     const char * server_ip;
     in_port_t server_port;
     int accepted_fds[MAX_CONNS];
+    int num_conns;
     char * data;
     off_t data_size;
-    int num_conns;
     bool started;
     int wait_period_sec;
 };

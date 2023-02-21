@@ -43,14 +43,15 @@ void * handle(void *handle_args) {
             return NULL;
         }
 
+        log.data_size = data_size;
+        log.start_time = time(NULL);
+        start_time_granular = clock();
+
         if (init_connection(server_sock, &h_args->server_addr) == -1) {
             close_fd(server_sock);
-            sleep(1); // backoff time
+            // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
+            sleep(1);
         } else {
-            log.data_size = data_size;
-            log.start_time = time(NULL);
-            start_time_granular = clock();
-
             uint32_t net_f_size = htonl(data_size);
             if (write_fully(server_sock, &net_f_size, sizeof(net_f_size)) == -1) {
                 close_fd(server_sock);

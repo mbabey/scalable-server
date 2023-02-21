@@ -18,12 +18,13 @@
  * allocates space for and reads a file.
  * </p>
  * @param dst where to allocate and store data.
+ * @param size_dst where to store the data size.
  * @param file_name name of the file to read.
  * @param mode mode to open the file in.
  * @param env pointer to the dc_env struct.
  * @return 0 on success. -1 on failure and set errno.
  */
-static int load_data(char **dst, struct state * s, const char *file_name, const char *mode, struct dc_env * env);
+static int load_data(char **dst, off_t *size_dst, const char *file_name, const char *mode, struct dc_env * env);
 
 /**
  * validate_params
@@ -56,7 +57,7 @@ int init_state(struct init_state_params * params, struct state * s, struct dc_er
     if (s->standalone) {
         s->server_ip = params->server_ip;
         if (parse_port(&s->server_port, params->server_port, 10) == -1) return -1;
-        if (load_data(&s->data, s, params->data_file_name, DATA_OPEN_MODE, env) == -1) return -1;
+        if (load_data(&s->data, &s->data_size, params->data_file_name, DATA_OPEN_MODE, env) == -1) return -1;
     } else {
         s->controller_ip = params->controller_ip;
         if (parse_port(&s->controller_port, params->controller_port, 10) == -1) return -1;
@@ -116,7 +117,7 @@ static int validate_params(struct init_state_params * params, struct state * s, 
     return 0;
 }
 
-static int load_data(char **dst, struct state * s, const char *file_name, const char *mode, struct dc_env * env) {
+static int load_data(char **dst, off_t *size_dst, const char *file_name, const char *mode, struct dc_env * env) {
     DC_TRACE(env);
     FILE * data_file;
     struct stat data_info;
@@ -146,7 +147,7 @@ static int load_data(char **dst, struct state * s, const char *file_name, const 
         }
         result = -1;
     }
-    s->data_size = data_info.st_size;
+    *size_dst = data_info.st_size;
     
     // close file regardless of result
     if (fclose(data_file) == -1) {
