@@ -14,9 +14,9 @@ struct logger {
     time_t end_time;
     double elapsed_time_granular;
     uint32_t server_resp;
+    uint32_t data_size;
+    int thread_id;
 };
-
-// ssize_t bytes, time_t start_time, time_t end_time, double elapsed_time_granular
 
 /**
  * init_logger

@@ -1,30 +1,26 @@
 #include "util.h"
 
+#include <arpa/inet.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <fcntl.h>
+#include <unistd.h>
 
-int set_sock_blocking(int fd, bool blocking) {
-    int result;
-    int flags;
+int write_fully(int fd, void * data, size_t size) {
+    ssize_t result;
+    ssize_t nwrote = 0;
 
-    flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1) {
-        perror("getting socket flags");
-        return -1;
+    while (nwrote < (ssize_t)size) {
+        result = write(fd, data, size);
+        if (result == -1) {
+            perror("writing fully");
+            return -1;
+        }
+        nwrote += result;
     }
-    flags = blocking ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
-
-    result = fcntl(fd, F_SETFL, flags);
-    if (result == -1) {
-        perror("setting socket flags");
-        return -1;
-    }
-
     return 0;
 }
 
@@ -42,7 +38,33 @@ int TCP_socket(int *dst) {
     return 0;
 }
 
-int init_addr(struct sockaddr_in *dst, in_port_t port) {
+int open_file(FILE **dst, const char * file_name, const char * mode) {
+    FILE *file;
+
+    file = fopen(file_name, mode);
+    if (file == NULL) {
+        perror("open file");
+        return -1;
+    }
+
+    *dst = file;
+    return 0;
+}
+
+int init_addr(struct sockaddr_in *dst, const char *ip, in_port_t port) {
+    (*dst).sin_family = PF_INET;
+    (*dst).sin_port = htons(port);
+    (*dst).sin_addr.s_addr = inet_addr(ip);
+    if((*dst).sin_addr.s_addr ==  (in_addr_t)-1)
+    {
+        perror("constructing address"); // TODO: does address failure actually set errno?
+        return -1;
+    }
+
+    return 0;
+}
+
+int init_addr_any(struct sockaddr_in *dst, in_port_t port) {
     (*dst).sin_family = PF_INET;
     (*dst).sin_port = htons(port);
     (*dst).sin_addr.s_addr = INADDR_ANY;

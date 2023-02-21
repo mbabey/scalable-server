@@ -28,7 +28,8 @@ static int handle_accept(struct pollfd *pfd, struct state * s, struct dc_error *
 /**
  * handle_stdin
  * <p>
- * check if a user input equals the start command. If so, start connected clients.
+ * check if a user input equals the start command. If so, send the start command to clients and then send server port,
+ * server ip, and data.
  * </p>
  * @param pfd poll file descriptor to reset revents on.
  * @param s the program state struct.
@@ -68,7 +69,7 @@ static void set_signal_handling(struct sigaction *sa);
 static void signal_handler(int sig);
 
 static volatile sig_atomic_t sig_quit; // SIGINT flag
-enum states {ERROR = -1, SUCCESS = 0, WAIT = 1};
+enum states {ERROR = -1, SUCCESS = 0, STARTED = 1};
 
 int handle(struct state * s, struct dc_error * err, struct dc_env * env) {
     DC_TRACE(env);
@@ -104,10 +105,9 @@ int handle(struct state * s, struct dc_error * err, struct dc_env * env) {
         if (fds[1].revents && POLLIN) // stdin readable
         {
             result = handle_stdin(&fds[1], s, err, env);
-            if (result == WAIT)
+            if (result == STARTED)
             {
-                wait_duration(s, err, env);
-                result = SUCCESS; // considered a success
+                result = SUCCESS;
                 exit = true;
             } else if (result == ERROR) {
                 exit = true;
@@ -131,19 +131,19 @@ static int handle_accept(struct pollfd *pfd, struct state * s, struct dc_error *
     if (fd == -1)
     {
         perror("accepting client connection");
-        return -1;
+        return ERROR;
     }
 
     s->accepted_fds[s->num_conns] = fd;
     if (s->num_conns >= MAX_CONNS)
     {
         (void) fprintf(stderr, "Maximum number of connections reached (%d)", MAX_CONNS);
-        return -1;
+        return ERROR;
     }
     s->num_conns++;
 
     (void) fprintf(stdout, "%s connected\n",  inet_ntoa(accept_addr.sin_addr));
-    return 0;
+    return SUCCESS;
 }
 
 static int handle_stdin(struct pollfd *pfd, struct state * s, struct dc_error * err, struct dc_env * env)
@@ -158,21 +158,24 @@ static int handle_stdin(struct pollfd *pfd, struct state * s, struct dc_error * 
     if (nread == -1)
     {
         perror("reading stdin");
-        return -1;
+        return ERROR;
     }
 
     buff[strcspn(buff, "\n\r")] = 0; // trim trailing \n or \r from input
 
     if (strcmp(buff, START_COMMAND) == 0)
     {
-        int result = send_start(s, err, env);
-        if (result == -1) {
-            return -1;
+        if (send_start(s, err, env) == -1) {
+            return ERROR;
         }
-        return 1;
+        if (send_data(s, err, env)) {
+            return ERROR;
+        }
+        wait_duration(s, err, env);
+        return STARTED;
     }
 
-    return 0;
+    return SUCCESS;
 }
 
 static void wait_duration(struct state * s, struct dc_error * err, struct dc_env * env) {

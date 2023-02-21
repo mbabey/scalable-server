@@ -6,14 +6,28 @@
 #include <stdio.h>
 
 /**
- * set_time
- * <>
- * sets dst to the current time in UTC microseconds.
+ * write_fully
+ * <p>
+ * writes data fully to a file descriptor.
  * </p>
- * @param dst where to assign the time.
- * @return 0 on success. -1 on failure and set errno.
+ * @param fd file descriptor to write to.
+ * @param data data to write.
+ * @param size size of data.
+ * @return 0 on success. On failure -1 and set errno.
  */
-int set_time(unsigned long * dst);
+int write_fully(int fd, void * data, size_t size);
+
+/**
+ * read_fully
+ * <p>
+ * reads data fully from a file descriptor.
+ * </p>
+ * @param fd file descriptor to read from.
+ * @param data where to write read data.
+ * @param size size of data to read.
+ * @return 0 on success. On failure -1 and set errno.
+ */
+int read_fully(int fd, void * data, size_t size);
 
 /**
  * close_fd
@@ -47,17 +61,6 @@ int init_connection(int sock_fd, struct sockaddr_in *addr);
  * @return 0 on success. On failure, -1 and set errno.
  */
 int open_file(FILE **dst, const char * file_name, const char * mode);
-
-/**
- * set_sock_blocking
- * <p>
- * sets the blocking mode of a socket.
- * </p>
- * @param fd file descriptor of the socket.
- * @param blocking whether the socket should block or not.
- * @return 0 on success. On failure, -1 and set errno.
- */
-int set_sock_blocking(int fd, bool blocking);
 
 /**
  * TCP_socket

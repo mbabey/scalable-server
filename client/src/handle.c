@@ -23,19 +23,16 @@
 static void hargs_cleanup_handler(void *args);
 
 void * handle(void *handle_args) {
+    struct handle_args *h_args;
     struct logger log;
     int server_sock;
-    ssize_t result;
+    uint32_t data_size;
+    uint32_t server_resp;
     clock_t  start_time_granular;
     clock_t  end_time_granular;
-    ssize_t nwrote;
-    ssize_t nread;
-    uint32_t f_size;
-    uint32_t resp;
-    struct handle_args *h_args;
 
     h_args = handle_args;
-    f_size = h_args->data_size;
+    data_size = h_args->data_size; // done for uint32 cast (htonl)
     pthread_cleanup_push(hargs_cleanup_handler, (void*)h_args) // run hargs_cleanup_handler on thread exit
 
     while (true) {
@@ -46,51 +43,32 @@ void * handle(void *handle_args) {
             return NULL;
         }
 
-        if (init_connection(server_sock, h_args->server_addr) == -1) {
+        log.data_size = data_size;
+        log.start_time = time(NULL);
+        start_time_granular = clock();
+
+        if (init_connection(server_sock, &h_args->server_addr) == -1) {
             close_fd(server_sock);
-            sleep(1); // backoff time
+            // NOLINTNEXTLINE(concurrency-mt-unsafe) : No threads here
+            sleep(1);
         } else {
-            // record start time
-            log.start_time = time(NULL);
-            start_time_granular = clock();
-
-            // write file size
-            uint32_t net_f_size = htonl(f_size);
-            nwrote = 0;
-            while (nwrote < (ssize_t)sizeof(net_f_size)) {
-                result = write(server_sock, &net_f_size, sizeof(net_f_size));
-                if (result == -1) {
-                    perror("writing data size to server");
-                    close_fd(server_sock);
-                    return NULL;
-                }
-                nwrote += result;
+            uint32_t net_f_size = htonl(data_size);
+            if (write_fully(server_sock, &net_f_size, sizeof(net_f_size)) == -1) {
+                close_fd(server_sock);
+                return NULL;
             }
 
-            // write file contents
-            nwrote = 0;
-            while (nwrote < (ssize_t)(f_size)) {
-                result = write(server_sock, h_args->data, f_size);
-                if (result == -1) {
-                    perror("writing data to server");
-                    close_fd(server_sock);
-                    return NULL;
-                }
-                nwrote += result;
+            if (write_fully(server_sock, h_args->data, data_size) == -1) {
+                close_fd(server_sock);
+                return NULL;
             }
 
-            // receive bytes read
-            resp = 0;
-            nread = 0;
-            while (nread < (ssize_t)sizeof(resp)) {
-                result = read(server_sock, &resp, sizeof(resp));
-                if (result == -1) {
-                    perror("reading from server");
-                    close_fd(server_sock);
-                    return NULL;
-                }
-                nread += result;
+            server_resp = 0;
+            if (read_fully(server_sock, &server_resp, sizeof(server_resp)) == -1) {
+                close_fd(server_sock);
+                return NULL;
             }
+            server_resp = ntohl(server_resp);
 
             if (close_fd(server_sock) == -1) {
                 perror("close server fd");
@@ -99,7 +77,8 @@ void * handle(void *handle_args) {
             log.end_time = time(NULL);
             end_time_granular = clock();
             log.elapsed_time_granular = (double) (end_time_granular - start_time_granular) / CLOCKS_PER_SEC;
-            log.server_resp = ntohl(resp);
+            log.server_resp = server_resp;
+            log.thread_id = h_args->thread_id;
 
             if (do_log(&log) == -1) {
                 return NULL;
@@ -116,7 +95,6 @@ static void hargs_cleanup_handler(void *args) {
 
     h_args = args;
     free(h_args->data);
-    free(h_args->server_addr);
     free(h_args);
 }
 

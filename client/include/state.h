@@ -12,6 +12,7 @@ struct init_state_params {
     const char *server_port;
     const char *controller_port;
     const char *data_file_name;
+    uint16_t wait_period_sec;
 };
 
 /**
@@ -26,10 +27,11 @@ struct state {
     struct sockaddr_in controller_addr;
     int controller_fd;
     in_port_t server_port;
-    const char* server_ip;
-    // server socket is created and closed in each thread
+    char* server_ip;
     char *data;
     off_t data_size;
+    uint16_t wait_period_sec;
+    bool standalone;
 };
 
 /**
