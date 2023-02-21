@@ -6,7 +6,6 @@
 int initialize_server(struct core_object *co)
 {
     DC_TRACE(co->env);
-    printf("INIT PROCESS SERVER\n");
     
     if (setup_process_server(co, co->so) == -1)
     {
@@ -19,7 +18,6 @@ int initialize_server(struct core_object *co)
 int run_server(struct core_object *co)
 {
     DC_TRACE(co->env);
-    printf("RUN PROCESS SERVER\n");
     
     if (run_process_server(co, co->so) == -1)
     {
@@ -32,7 +30,6 @@ int run_server(struct core_object *co)
 int close_server(struct core_object *co)
 {
     DC_TRACE(co->env);
-    printf("CLOSE PROCESS SERVER\n");
     
     destroy_process_state(co, co->so);
     
