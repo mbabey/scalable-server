@@ -14,13 +14,14 @@ int write_fully(int fd, void * data, size_t size) {
     ssize_t nwrote = 0;
 
     while (nwrote < (ssize_t)size) {
-        result = write(fd, data, size);
+        result = write(fd, ((char*)data)+nwrote, size-nwrote);
         if (result == -1) {
             perror("writing fully");
             return -1;
         }
         nwrote += result;
     }
+
     return 0;
 }
 
@@ -29,13 +30,14 @@ int read_fully(int fd, void * data, size_t size) {
     ssize_t nread = 0;
 
     while (nread < (ssize_t)size) {
-        result = read(fd, data, size);
+        result = read(fd, ((char*)data)+nread, size-nread);
         if (result == -1) {
             perror("reading fully");
             return -1;
         }
         nread += result;
     }
+
     return 0;
 }
 

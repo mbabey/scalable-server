@@ -14,7 +14,7 @@ int write_fully(int fd, void * data, size_t size) {
     ssize_t nwrote = 0;
 
     while (nwrote < (ssize_t)size) {
-        result = write(fd, data, size);
+        result = write(fd, ((char*)data)+nwrote, size-nwrote);
         if (result == -1) {
             perror("writing fully");
             return -1;
