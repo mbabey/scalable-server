@@ -87,7 +87,7 @@ void * handle(void *handle_args) {
         pthread_testcancel();
     }
 
-    pthread_cleanup_pop(1) // should never reach here, but set to 1 to run data_cleanup_handler anyway
+    pthread_cleanup_pop(1); // should never reach here, but set to 1 to run data_cleanup_handler anyway
 }
 
 static void hargs_cleanup_handler(void *args) {

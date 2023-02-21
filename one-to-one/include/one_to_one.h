@@ -3,11 +3,21 @@
 
 #include <mem_manager/manager.h>
 #include <netinet/in.h>
+#include <signal.h>
 
 /**
  * The number of connections that can be queued on the listening socket.
  */
 #define CONNECTION_QUEUE 10
+
+/**
+ * Enumerator to handle client connection
+ */
+enum handle_client_result{
+    CLIENT_RESULT_ERROR,
+    CLIENT_RESULT_TERMINATION,
+    CLIENT_RESULT_SUCCESS,
+};
 
 /**
  * setup_state
@@ -37,9 +47,8 @@ int open_server_for_listen(struct state_object *so, struct sockaddr_in *listen_a
  * Close all connections and all open sockets.
  * </p>
  * @param so the state object
- * @return 0 on success, -1 and set errno on failure
  */
-int destroy_state(struct state_object *so);
+void destroy_state(struct state_object *so);
 
 /**
  * run_one_to_one
@@ -59,5 +68,21 @@ int handle_client (struct core_object *co);
  * @param listen_fd as int
  * @return int on accepted socket, -1 and set errno on failure
  */
-int accept_conn(int listen_fd);
+int accept_conn(int listen_fd, int* fd_out);
+
+/**
+ * signal_handler
+ * <p>
+ * Handles signal
+ * <p>
+ * @param sig_num as int
+ */
+void handle_sigint(int sig_num);
+
+/**
+ * set_signal_hadnler
+ * @param sa as sigaction
+ * @param signal_handler as function pointer accepting parameter int and returning void
+ */
+int set_signal_handler(struct sigaction *sa, void (*signal_handler)(int));
 #endif //ONE_TO_ONE_ONE_TO_ONE_H
