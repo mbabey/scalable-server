@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(one-to-one
+project(client_controller
         VERSION 0.0.1
         DESCRIPTION ""
         LANGUAGES C)
@@ -10,18 +10,17 @@ set(CMAKE_C_STANDARD 17)
 set(SOURCE_DIR src)
 set(INCLUDE_DIR include)
 set(SOURCE_LIST
-        ${SOURCE_DIR}/api_functions.c
-        ${SOURCE_DIR}/one_to_one.c
-        #=vvvv= SOURCE FOR DUMMY MAIN =vvvv=#
-        ${SOURCE_DIR}/test_main.c
-        ../core/src/util.c
+        ${SOURCE_DIR}/main.c
+        ${SOURCE_DIR}/state.c
+        ${SOURCE_DIR}/util.c
+        ${SOURCE_DIR}/handle.c
+        ${SOURCE_DIR}/connection.c
         )
 set(HEADER_LIST
-        ${INCLUDE_DIR}/objects.h
-        ${INCLUDE_DIR}/one_to_one.h
-        ../api_functions.h
-        #=vvvv= INCLUDES FOR DUMMY MAIN =vvvv=#
-        ../core/include/util.h
+        ${INCLUDE_DIR}/state.h
+        ${INCLUDE_DIR}/util.h
+        ${INCLUDE_DIR}/handle.h
+        ${INCLUDE_DIR}/connection.h
         )
 
 set(SANITIZE TRUE)
@@ -116,7 +115,7 @@ set(DOXYGEN_QUIET YES)
 doxygen_add_docs(doxygen
         ${HEADER_LIST}
         WORKING_DIRECTORY ..
-        COMMENT "Generating Doxygen documentation for one-to-one")
+        COMMENT "Generating Doxygen documentation for client_controller")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CLANG_TIDY_CHECKS "*")
@@ -141,43 +140,9 @@ set(CLANG_TIDY_CHECKS "${CLANG_TIDY_CHECKS},-clang-analyzer-security.insecureAPI
 set(CLANG_TIDY_CHECKS "${CLANG_TIDY_CHECKS},-android-cloexec-accept")
 set(CMAKE_C_CLANG_TIDY clang-tidy -checks=${CLANG_TIDY_CHECKS};--quiet)
 
-#========= vvv COMPILE AS LIBRARY vvv =========#
-add_library(one-to-one SHARED ${SOURCE_LIST} ${HEADER_LIST})
-target_include_directories(one-to-one PRIVATE include/one-to-one)
-target_include_directories(one-to-one PRIVATE /usr/local/include)
-target_link_directories(one-to-one PRIVATE /usr/local/lib)
-
-if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-    target_include_directories(one-to-one PRIVATE /usr/include)
-endif ()
-
-set_target_properties(one-to-one PROPERTIES
-        VERSION ${PROJECT_VERSION}
-        SOVERSION ${PROJECT_VERSION_MAJOR})
-
-get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
-
-if ("${LIB64}" STREQUAL "TRUE")
-    set(LIBSUFFIX 64)
-else()
-    set(LIBSUFFIX "")
-endif()
-
-set(INSTALL_LIB_DIR lib${LIBSUFFIX} CACHE PATH "Installation directory for libraries")
-mark_as_advanced(INSTALL_LIB_DIR)
-
-install(TARGETS one-to-one LIBRARY DESTINATION ${INSTALL_LIB_DIR})
-install(FILES ${HEADER_LIST} DESTINATION include/one-to-one)
-
-#========= ^^^ COMPILE AS LIBRARY ^^^ =========#
-#========= vvv COMPILE AS EXECUTABLE vvv =========#
-
-#[[add_executable(one-to-one ${SOURCE_LIST})
-target_include_directories(one-to-one PRIVATE /usr/local/include)]]
-
-#========= ^^^ COMPILE AS EXECUTABLE ^^^ =========#
-
-add_dependencies(one-to-one doxygen)
+add_executable(client_controller ${SOURCE_LIST})
+target_include_directories(client_controller PRIVATE /usr/local/include)
+add_dependencies(client_controller doxygen)
 
 find_library(LIBDC_ERROR dc_error REQUIRED)
 find_library(LIBDC_ENV dc_env REQUIRED)
@@ -190,13 +155,13 @@ find_library(LIB_CONFIG config REQUIRED)
 find_library(LIBDC_APPLICATION dc_application REQUIRED)
 find_library(MEM_MANAGER mem_manager REQUIRED)
 
-target_link_libraries(one-to-one PUBLIC ${LIBDC_ERROR})
-target_link_libraries(one-to-one PUBLIC ${LIBDC_ENV})
-target_link_libraries(one-to-one PUBLIC ${LIBDC_C})
-target_link_libraries(one-to-one PUBLIC ${LIBDC_POSIX})
-target_link_libraries(one-to-one PUBLIC ${LIBDC_UNIX})
-target_link_libraries(one-to-one PUBLIC ${LIBDC_UTIL})
-target_link_libraries(one-to-one PUBLIC ${LIBDC_FSM})
-target_link_libraries(one-to-one PUBLIC ${LIB_CONFIG})
-target_link_libraries(one-to-one PUBLIC ${LIBDC_APPLICATION})
-target_link_libraries(one-to-one PUBLIC ${MEM_MANAGER})
+target_link_libraries(client_controller PUBLIC ${LIBDC_ERROR})
+target_link_libraries(client_controller PUBLIC ${LIBDC_ENV})
+target_link_libraries(client_controller PUBLIC ${LIBDC_C})
+target_link_libraries(client_controller PUBLIC ${LIBDC_POSIX})
+target_link_libraries(client_controller PUBLIC ${LIBDC_UNIX})
+target_link_libraries(client_controller PUBLIC ${LIBDC_UTIL})
+target_link_libraries(client_controller PUBLIC ${LIBDC_FSM})
+target_link_libraries(client_controller PUBLIC ${LIB_CONFIG})
+target_link_libraries(client_controller PUBLIC ${LIBDC_APPLICATION})
+target_link_libraries(client_controller PUBLIC ${MEM_MANAGER})

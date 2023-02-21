@@ -1,0 +1,51 @@
+#ifndef CLIENT_CONTROLLER_UTIL_H
+#define CLIENT_CONTROLLER_UTIL_H
+
+#include <netinet/in.h>
+#include <stdbool.h>
+
+/**
+ * set_sock_blocking
+ * <p>
+ * sets the blocking mode of a socket.
+ * </p>
+ * @param fd file descriptor of the socket.
+ * @param blocking whether the socket should block or not.
+ * @return 0 on success. On failure, -1 and set errno.
+ */
+int set_sock_blocking(int fd, bool blocking);
+
+/**
+ * TCP_socket
+ * <p>
+ * create a TCP socket.
+ * </p>
+ * @param dst where to assign the socket file descriptor.
+ * @return 0 on success. On failure, -1 and set errno.
+ */
+int TCP_socket(int *dst);
+
+/**
+ * init_addr
+ * <p>
+ * construct a socket address.
+ * </p>
+ * @param dst where to construct the address.
+ * @param port the port to use.
+ * @return 0 on success. On failure, -1 and set errno.
+ */
+int init_addr(struct sockaddr_in *dst, in_port_t port);
+
+/**
+ * parse_port
+ * <p>
+ * parse a port from a string.
+ * </p>
+ * @param dst where to assign the parsed port.
+ * @param buff the string to parse.
+ * @param radix the base to use.
+ * @return 0 on success. On failure, -1 and set errno.
+ */
+int parse_port(in_port_t *dst, const char *buff, int radix);
+
+#endif //CLIENT_CONTROLLER_UTIL_H
