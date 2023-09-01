@@ -74,23 +74,15 @@ static int create_threads(int n, struct state * s, struct dc_error * err, struct
         }
         strncpy(h_args->data , s->data, s->data_size);
 
-        h_args->server_addr = malloc(sizeof(struct sockaddr_in));
-        if (h_args->server_addr == NULL) {
-            free(h_args->data);
-            free(h_args);
-            perror("malloc for addr");
-            return -1;
-        }
-
-        if (init_addr(h_args->server_addr, s->server_ip, s->server_port) == -1) {
+        if (init_addr(&h_args->server_addr, s->server_ip, s->server_port) == -1) {
             free(h_args->data);
             free(h_args);
             return -1;
         }
 
         h_args->data_size = s->data_size;
+        h_args->thread_id = i;
         if(pthread_create(&t_ids[i], NULL, handle, (void *)h_args) != 0) {
-            free(h_args->server_addr);
             free(h_args->data);
             free(h_args);
             return -1;

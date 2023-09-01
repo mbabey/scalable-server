@@ -2,13 +2,44 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+int write_fully(int fd, void * data, size_t size) {
+    ssize_t result;
+    ssize_t nwrote = 0;
+
+    while (nwrote < (ssize_t)size) {
+        result = write(fd, ((char*)data)+nwrote, size-nwrote);
+        if (result == -1) {
+            perror("writing fully");
+            return -1;
+        }
+        nwrote += result;
+    }
+
+    return 0;
+}
+
+int read_fully(int fd, void * data, size_t size) {
+    ssize_t result;
+    ssize_t nread = 0;
+
+    while (nread < (ssize_t)size) {
+        result = read(fd, ((char*)data)+nread, size-nread);
+        if (result == -1) {
+            perror("reading fully");
+            return -1;
+        }
+        nread += result;
+    }
+
+    return 0;
+}
 
 int close_fd(int sock) {
     if (close(sock) == -1) {
@@ -41,26 +72,6 @@ int open_file(FILE **dst, const char * file_name, const char * mode) {
     }
 
     *dst = file;
-    return 0;
-}
-
-int set_sock_blocking(int fd, bool blocking) {
-    int result;
-    int flags;
-
-    flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1) {
-        perror("getting socket flags");
-        return -1;
-    }
-    flags = blocking ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
-
-    result = fcntl(fd, F_SETFL, flags);
-    if (result == -1) {
-        perror("setting socket flags");
-        return -1;
-    }
-
     return 0;
 }
 

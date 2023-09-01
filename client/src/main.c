@@ -28,6 +28,7 @@ struct application_settings
     struct dc_setting_string *server_port;
     struct dc_setting_string *controller_port;
     struct dc_setting_string *data;
+    struct dc_setting_uint16 *duration_sec;
 };
 
 /**
@@ -117,6 +118,7 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
     settings->server_port             = dc_setting_string_create(env, err);
     settings->controller_port         = dc_setting_string_create(env, err);
     settings->data                    = dc_setting_string_create(env, err);
+    settings->duration_sec            = dc_setting_uint16_create(env, err);
 
     struct options opts[] = {
             {(struct dc_setting *) settings->opts.parent.config_path,
@@ -178,14 +180,24 @@ static struct dc_application_settings *create_settings(const struct dc_env *env,
                     dc_string_from_string,
                     "data",
                     dc_string_from_config,
-                    NULL}
+                    NULL},
+            {(struct dc_setting *) settings->duration_sec,
+                        dc_options_set_uint16,
+                        "duration",
+                        required_argument,
+                        't',
+                        "DURATION",
+                        dc_uint16_from_string,
+                        "duration",
+                        dc_uint16_from_config,
+                        0}
     };
 
     settings->opts.opts_count = (sizeof(opts) / sizeof(struct options)) + 1;
     settings->opts.opts_size  = sizeof(struct options);
     settings->opts.opts       = dc_calloc(env, err, settings->opts.opts_count, settings->opts.opts_size);
     dc_memcpy(env, settings->opts.opts, opts, sizeof(opts));
-    settings->opts.flags      = "s:c:p:P:d:";
+    settings->opts.flags      = "s:c:p:P:d:t:";
     settings->opts.env_prefix = "CLIENT_";
 
     return (struct dc_application_settings *) settings;
@@ -208,6 +220,7 @@ static int run(const struct dc_env *env, struct dc_error *err, struct dc_applica
     params.server_port = dc_setting_string_get(env, app_settings->server_port);
     params.controller_port = dc_setting_string_get(env, app_settings->controller_port);
     params.data_file_name = dc_setting_string_get(env, app_settings->data);
+    params.wait_period_sec = dc_setting_uint16_get(env, app_settings->duration_sec);
 
     init_result = init_state(&params, &s, err, env);
     if (init_result != -1)
